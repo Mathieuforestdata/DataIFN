@@ -33,15 +33,8 @@ library(ggplot2)
 library(dplyr)
 
 # Chargement de la fonction principal de récupération des données IFN ----
-get_NFI()
+#get_NFI()
 
-# Importation de la zone buffer d'étude ----
-
-shp_path <- file.choose()  # Ouvrir les fichiers locaux du PC
-
-shp_etude <- st_read(shapefile_path)  # Importer le shapefile sélectionné
-
-plot(st_geometry(shp_etude))  # Visualiser les géométries
 
 
 # Chargement des fichiers CSV utilisés ----
@@ -52,42 +45,43 @@ placette_ifn <- read.csv("./NFI_data/Raw_data/PLACETTE.csv",
 arbre_ifn <- read.csv("./NFI_data/Raw_data/ARBRE.csv",
                       header = TRUE,
                       sep = ';')
+bois_mort_ifn <- read.csv("./NFI_data/Raw_data/BOIS_MORT.csv",
+                      header = TRUE,
+                      sep = ';')
+couvert_ifn <- read.csv("./NFI_data/Raw_data/COUVERT.csv",
+                      header = TRUE,
+                      sep = ';')
+flore_ifn <- read.csv("./NFI_data/Raw_data/FLORE.csv",
+                      header = TRUE,
+                      sep = ';')
+habitat_ifn <- read.csv("./NFI_data/Raw_data/HABITAT.csv",
+                      header = TRUE,
+                      sep = ';')
 metadonnee_ifn <- read.csv("./NFI_data/meta_data_nfi.csv",
                       header = TRUE,
                       sep = ';')
+essence_ifn <- read.csv("./NFI_data/Raw_data/espar-cdref13.csv",
+                           header = TRUE,
+                           sep = ';')
 
-# Lecture du code essence des arbres IFN ----
-# Chaque arbre détiens un code essence ("ESPAR")
-essence_ifn <- metadonnee_ifn %>%  # Filtrer les lignes où la colonne `rawnales` est égale à "ESPAR"
-  filter(row.names == "ESPAR")
+# Importation de la zone buffer d'étude ----
 
-# Corps du script ----
+shp_path <- file.choose()  # Ouvrir les fichiers locaux du PC
 
-# Affichage des premières lignes des fichiers
-head(placette_ifn)
-head(arbre_ifn)
+shp_etude <- st_read(shp_path)  # Importer le shapefile sélectionné
 
-
-# Exportation des placettes IFN suivant le département ----
-depart_selec <- 54  # Choix du numéro de département
-
-# Sélection des placettes, avec application du filtre département
-placette_filtre <- subset(placette_ifn, DEP == depart_selec)
-
-# Géolocalisation des placettes avec les données de latitudes et longitudes
-placette_sf <- st_as_sf(placette_filtre, coords = c("XL", "YL"), crs = 2154)
-
-# Affichage des placettes de l'IFN sur le département selectionné
-ggplot(data = placette_sf) +
-  geom_sf() +
-  theme_minimal() +
-  labs(title = "Localisation des placettes")
+plot(st_geometry(shp_etude))  # Visualiser les géométries
 
 
 
 # Selection des placettes IFN appartenant à la zone d'étude ----
+# Géolocalisation des placettes avec les données de latitudes et longitudes
+placette_sf <- st_as_sf(placette_ifn, coords = c("XL", "YL"), crs = 2154)
+
 st_crs(placette_sf)  # Test de la projection de la couche placette_sf
-st_crs(shp_etude)
+st_crs(shp_etude)  # Test projetction zone d'étude
+
+
 
 # Croisement des emplacements de placette avec le shapefile importé
 placette_ifn_zone_etude <- st_intersection(placette_sf, shp_etude)
@@ -106,7 +100,7 @@ ggplot() +
 # Alors on ajoute un buffer au shp importé
 
 # Définition de la zone tampon
-largeur_tampon <- 500  # Ajustez cette valeur selon vos besoins
+largeur_tampon <- 1500  # Ajustez cette valeur selon vos besoins
 
 # Création de la zone tampon autour du shapefile
 zone_tampon <- st_buffer(shp_etude, dist = largeur_tampon)
@@ -127,14 +121,15 @@ ggplot() +
   theme_minimal() +
   labs(title = "Placettes dans la zone tampon autour de la zone d'étude")
 
+# Extraction de toutes les données IFN sur la zone d'étude ----
 # Extraire les IDP des placettes dans la zone tampon
 idp_placette_tampon <- placette_tampon$IDP
 
-# Filtrer les arbres pour ne garder que ceux des placettes dans le tampon
-arbre_tampon <- arbre_ifn[arbre_ifn$IDP %in% idp_placette_tampon, ]
+# Filtre ARBRE
+arbre_zone_etude <- arbre_ifn[arbre_ifn$IDP %in% idp_placette_tampon, ]
 
-# Afficher les premières lignes des arbres filtrés
-head(arbre_tampon)
+# Filtre BOIS MORT
+bois_mort_zone_etude <- bois_mort_ifn[bois_mort_ifn$IDP %in% idp_placette_tampon, ]
 
 
 
