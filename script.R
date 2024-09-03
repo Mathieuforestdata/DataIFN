@@ -16,7 +16,7 @@ install.packages("dplyr")
 # Installation du dossier de travail ----
 # Attention, dossier de travail individuel à chaque personne !!!
 
-setwd("C:/Users/roman/Desktop/GF/Module stat SIG/Projet R/DataIFN")
+setwd("C:/cours APT/3A R/DataIFN")
 
 
 # Installation des extensions Github ----
@@ -33,7 +33,7 @@ library(ggplot2)
 library(dplyr)
 
 # Chargement de la fonction principal de récupération des données IFN ----
-get_NFI()
+#get_NFI()
 
 
 
@@ -135,7 +135,7 @@ bois_mort_zone_etude <- bois_mort_ifn[bois_mort_ifn$IDP %in% idp_placette_tampon
 
 # New Update
 
-Mathieu bouffe moi le cul
+# Benoit est opérationel !!!
 
 
 
