@@ -16,7 +16,7 @@ install.packages("dplyr")
 # Installation du dossier de travail ----
 # Attention, dossier de travail individuel à chaque personne !!!
 
-setwd("C:/Users/mathi/OneDrive/Documents/AgroParisTech/Cours 3A/Rstudio/DataIFN")
+setwd("C:/Users/roman/Desktop/GF/Module stat SIG/Projet R/DataIFN")
 
 
 # Installation des extensions Github ----
@@ -66,7 +66,7 @@ essence_ifn <- read.csv("./NFI_data/Raw_data/espar-cdref13.csv",
 
 # Importation de la zone buffer d'étude ----
 
-shp_path <- file.choose()  # Ouvrir les fichiers locaux du PC
+shp_path <- file.choose("C:/Users/roman/Desktop/GF/Module stat SIG/SIG/RN3A/FORMATION_VEGETALE.shp")  # Ouvrir les fichiers locaux du PC
 
 shp_etude <- st_read(shp_path)  # Importer le shapefile sélectionné
 
@@ -135,7 +135,7 @@ bois_mort_zone_etude <- bois_mort_ifn[bois_mort_ifn$IDP %in% idp_placette_tampon
 
 # New Update
 
-
+Mathieu bouffe moi le cul
 
 
 
