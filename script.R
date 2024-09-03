@@ -34,11 +34,11 @@ get_NFI()
 
 # Importation de la zone buffer d'étude ----
 
-shapefile_path <- file.choose()  # Ouvrir les fichiers locaux du PC
+shp_path <- file.choose()  # Ouvrir les fichiers locaux du PC
 
-shapefile_data <- st_read(shapefile_path)  # Importer le shapefile sélectionné
+shp_etude <- st_read(shapefile_path)  # Importer le shapefile sélectionné
 
-plot(st_geometry(shapefile_data))  # Visualiser les géométries
+plot(st_geometry(shp_etude))  # Visualiser les géométries
 
 
 # Corps du script ----
@@ -49,11 +49,22 @@ placette_ifn <- read.csv("./NFI_data/Raw_data/PLACETTE.csv",
                          header = TRUE,
                          sep = ';')
 
+# On charge le fichier csv des arbres inventoriés par l'IFN
+arbre_ifn <- read.csv("./NFI_data/Raw_data/ARBRE.csv",
+                         header = TRUE,
+                         sep = ';')
+
+
+
 # Affichage des premières lignes du fichier
 head(placette_ifn)
+head(arbre_ifn)
 
-# Choix du département de 
-depart_selec <- 52
+
+
+
+# Choix du département concernant le buffer 
+depart_selec <- 54
 placette_filtre <- subset(placette_ifn, DEP == depart_selec)
 
 placette_sf <- st_as_sf(placette_filtre, coords = c("XL", "YL"), crs = 2154)
@@ -63,8 +74,13 @@ ggplot(data = placette_sf) +
   theme_minimal() +
   labs(title = "Localisation des placettes")
 
+# Selection des placettes IFN appartenant à la zone d'étude ----
+st_crs(placette_sf)
+st_crs(shp_etude)
+placette_ifn_zone_etude <- st_intersection(placette_sf, shp_etude)
 
-
-summary(NFI_dendro)
-
-
+ggplot() +
+  geom_sf(data = shp_etude, fill = "lightblue", color = "black") +  # Carte de la zone d'étude
+  geom_sf(data = placette_ifn_zone_etude, color = "red") +  # Points des placettes
+  theme_minimal() +
+  labs(title = "Placettes dans la zone d'étude")
