@@ -33,7 +33,7 @@ library(ggplot2)
 library(dplyr)
 
 # Chargement de la fonction principal de récupération des données IFN ----
-#get_NFI()
+get_NFI()
 
 
 
@@ -133,7 +133,7 @@ bois_mort_zone_etude <- bois_mort_ifn[bois_mort_ifn$IDP %in% idp_placette_tampon
 
 
 
-# Update de 17:03
+# New Update
 
 
 
