@@ -13,6 +13,7 @@ install.packages("sf")  # Package SIG
 install.packages("ggplot2")
 install.packages("dplyr")
 install.packages("happifn")
+install.packages("tidyr")
 
 # Installation du dossier de travail ----
 setwd(dirname(rstudioapi::getActiveDocumentContext()$path))
@@ -31,10 +32,34 @@ library(data.table)
 library(sf)
 library(ggplot2)
 library(dplyr)
+library(tidyr)
 
 # Chargement de la fonction principal de récupération des données IFN ----
 get_ifn_all()
-metadata <-get_ifn_metadata()
+metadata <-get_ifn_metadata()  # Chargement des metadonnee
+
+# On charge indépendament toutes les listes de metadata
+code <- metadata[[1]]
+units <- metadata[[2]]
+units_value_set <- metadata[[3]]
+
+# Importation de toutes les placettes et arbre
+arbre_ifn_total <- read.csv("./export_dataifn_2005_2022/ARBRE.csv",
+                header = TRUE,  # Signifie que la première ligne est le nom des colones
+                sep = ';')  # La décimal est une virgule
+placette_ifn_total <- read.csv("./export_dataifn_2005_2022/PLACETTE.csv",
+                            header = TRUE,  # Signifie que la première ligne est le nom des colones
+                            sep = ';')  # La décimal est une virgule
+
+# Géolocalisation des placettes avec les données de latitudes et longitudes
+placette_sf <- st_as_sf(placette_ifn_total, coords = c("XL", "YL"), crs = 2154)
+
+
+# On identifie les codes essences
+code_essence <- units_value_set %>% 
+  filter(units == "ESPAR")
+
+
 
 # Importation de la zone buffer d'étude ----
 
@@ -48,11 +73,6 @@ plot(st_geometry(shp_etude))  # Visualiser les géométries
 
 
 # Selection des placettes IFN appartenant à la zone d'étude ----
-# Géolocalisation des placettes avec les données de latitudes et longitudes
-placette_sf <- st_as_sf(placette, coords = c("XL", "YL"), crs = 2154)
-
-
-happifn:::ifn_as_sf()
 st_crs(placette_sf)  # Test de la projection de la couche placette_sf
 st_crs(shp_etude)  # Test projetction zone d'étude
 
@@ -75,7 +95,7 @@ ggplot() +
 # Alors on ajoute un buffer au shp importé
 
 # Définition de la zone tampon
-largeur_tampon <- 1500  # Ajustez cette valeur selon vos besoins
+largeur_tampon <- 2500  # Ajustez cette valeur selon vos besoins
 
 # Création de la zone tampon autour du shapefile
 zone_tampon <- st_buffer(shp_etude, dist = largeur_tampon)
@@ -101,16 +121,48 @@ ggplot() +
 idp_placette_tampon <- placette_tampon$IDP
 
 # Filtre ARBRE
-arbre_zone_etude <- arbre[arbre$IDP %in% idp_placette_tampon, ]
+# Construction numéro unique arbre
+arbre_ifn_total$num_unique <- paste(arbre_ifn_total$IDP, arbre_ifn_total$A, sep = ".")
+
+arbre_ifn_total$Essence <- NA
+arbre_zone_etude <- arbre_ifn_total[new_arbre$IDP %in% idp_placette_tampon, ]
+
+
+arbre_zone_etude$ESPAR[arbre_zone_etude$ESPAR == "" | arbre_zone_etude$ESPAR == " "] <- NA
+
+# Remplir les valeurs manquantes pour chaque groupe de numéros uniques
+arbre_zone_etude_cor <- arbre_zone_etude %>%
+  group_by(num_unique) %>%          # Grouper par le numéro unique
+  fill(ESPAR, .direction = "downup") %>%  # Remplir les valeurs manquantes par les valeurs non manquantes
+  ungroup()  # Désactiver le regroupement
+
+# Trier les données par `num_unique` dans l'ordre croissant
+data_sorted <- data_filled %>% 
+  arrange(num_unique)
+
+# Boucle pour parcourir chaque ligne du tableau `arbres`
+for (i in 1:nrow(arbre_zone_etude_cor)) {
+  # Récupérer le code ESPAR pour l'arbre à la ligne `i`
+  code_espar <- arbre_zone_etude_cor$ESPAR[i]
+  
+  # Trouver l'essence correspondante dans la table `metadonnees`
+  essence_correspondante <- code_essence$libelle[code_essence$code == code_espar]
+  
+  # Vérifier si une essence a été trouvée
+  if (length(essence_correspondante) > 0) {
+    # Ajouter l'essence à la colonne "Essence" de `arbres`
+    arbre_zone_etude_cor$Essence[i] <- essence_correspondante
+  } else {
+    # Si aucun code ESPAR correspondant n'est trouvé, laisser la valeur par défaut (NA)
+    arbre_zone_etude_cor$Essence[i] <- NA
+  }
+}
+
 
 # Filtre BOIS MORT
 bois_mort_zone_etude <- bois_mort_ifn[bois_mort_ifn$IDP %in% idp_placette_tampon, ]
 
 
-
-# New Update
-
-# Benoit est opérationel !!!
 
 
 
