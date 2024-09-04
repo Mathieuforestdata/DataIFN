@@ -20,7 +20,7 @@ dir <- getwd()
 
 # Installation des extensions Github ----
 
-#remotes::install_github("Jeremy-borderieux/FrenchNFIfindeR")
+#remotes::install_github("Jeremy-borderieux/FrenchNFIfindeR")  # Nes pas installer
 devtools::install_github("paul-carteron/happifn")
 
 # Installation des librairies ----
@@ -32,34 +32,33 @@ library(ggplot2)
 library(dplyr)
 
 # Chargement de la fonction principal de récupération des données IFN ----
-#get_NFI()
-
+get_ifn_all()
 
 
 # Chargement des fichiers CSV utilisés ----
-placette_ifn <- read.csv("./NFI_data/Raw_data/PLACETTE.csv",
+#placette_ifn <- read.csv("./NFI_data/Raw_data/PLACETTE.csv",
                          header = TRUE,
                          sep = ';')
 
-arbre_ifn <- read.csv("./NFI_data/Raw_data/ARBRE.csv",
+#arbre_ifn <- read.csv("./NFI_data/Raw_data/ARBRE.csv",
                       header = TRUE,
                       sep = ';')
-bois_mort_ifn <- read.csv("./NFI_data/Raw_data/BOIS_MORT.csv",
+#bois_mort_ifn <- read.csv("./NFI_data/Raw_data/BOIS_MORT.csv",
                       header = TRUE,
                       sep = ';')
-couvert_ifn <- read.csv("./NFI_data/Raw_data/COUVERT.csv",
+#couvert_ifn <- read.csv("./NFI_data/Raw_data/COUVERT.csv",
                       header = TRUE,
                       sep = ';')
-flore_ifn <- read.csv("./NFI_data/Raw_data/FLORE.csv",
+#flore_ifn <- read.csv("./NFI_data/Raw_data/FLORE.csv",
                       header = TRUE,
                       sep = ';')
-habitat_ifn <- read.csv("./NFI_data/Raw_data/HABITAT.csv",
+#habitat_ifn <- read.csv("./NFI_data/Raw_data/HABITAT.csv",
                       header = TRUE,
                       sep = ';')
-metadonnee_ifn <- read.csv("./NFI_data/meta_data_nfi.csv",
+#metadonnee_ifn <- read.csv("./NFI_data/meta_data_nfi.csv",
                       header = TRUE,
                       sep = ';')
-essence_ifn <- read.csv("./NFI_data/Raw_data/espar-cdref13.csv",
+#essence_ifn <- read.csv("./NFI_data/Raw_data/espar-cdref13.csv",
                            header = TRUE,
                            sep = ';')
 
@@ -69,13 +68,14 @@ shp_path <- file.choose("C:/Users/roman/Desktop/GF/Module stat SIG/SIG/RN3A/FORM
 
 shp_etude <- st_read(shp_path)  # Importer le shapefile sélectionné
 
+#shp_etude <- mapedit::drawFeatures()  # Permet de dessiner une features manuellement
 plot(st_geometry(shp_etude))  # Visualiser les géométries
 
 
 
 # Selection des placettes IFN appartenant à la zone d'étude ----
 # Géolocalisation des placettes avec les données de latitudes et longitudes
-placette_sf <- st_as_sf(placette_ifn, coords = c("XL", "YL"), crs = 2154)
+placette_sf <- st_as_sf(placette, coords = c("XL", "YL"), crs = 2154)
 
 st_crs(placette_sf)  # Test de la projection de la couche placette_sf
 st_crs(shp_etude)  # Test projetction zone d'étude
