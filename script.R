@@ -12,6 +12,7 @@ install.packages("data.table")
 install.packages("sf")  # Package SIG
 install.packages("ggplot2")
 install.packages("dplyr")
+install.packages("happifn")
 
 # Installation du dossier de travail ----
 setwd(dirname(rstudioapi::getActiveDocumentContext()$path))
@@ -33,34 +34,7 @@ library(dplyr)
 
 # Chargement de la fonction principal de récupération des données IFN ----
 get_ifn_all()
-
-
-# Chargement des fichiers CSV utilisés ----
-#placette_ifn <- read.csv("./NFI_data/Raw_data/PLACETTE.csv",
-                         header = TRUE,
-                         sep = ';')
-
-#arbre_ifn <- read.csv("./NFI_data/Raw_data/ARBRE.csv",
-                      header = TRUE,
-                      sep = ';')
-#bois_mort_ifn <- read.csv("./NFI_data/Raw_data/BOIS_MORT.csv",
-                      header = TRUE,
-                      sep = ';')
-#couvert_ifn <- read.csv("./NFI_data/Raw_data/COUVERT.csv",
-                      header = TRUE,
-                      sep = ';')
-#flore_ifn <- read.csv("./NFI_data/Raw_data/FLORE.csv",
-                      header = TRUE,
-                      sep = ';')
-#habitat_ifn <- read.csv("./NFI_data/Raw_data/HABITAT.csv",
-                      header = TRUE,
-                      sep = ';')
-#metadonnee_ifn <- read.csv("./NFI_data/meta_data_nfi.csv",
-                      header = TRUE,
-                      sep = ';')
-#essence_ifn <- read.csv("./NFI_data/Raw_data/espar-cdref13.csv",
-                           header = TRUE,
-                           sep = ';')
+metadata <-get_ifn_metadata()
 
 # Importation de la zone buffer d'étude ----
 
