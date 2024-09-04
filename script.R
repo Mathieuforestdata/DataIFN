@@ -64,7 +64,7 @@ get_ifn_all()
 
 # Importation de la zone buffer d'étude ----
 
-shp_path <- file.choose("C:/Users/roman/Desktop/GF/Module stat SIG/SIG/RN3A/FORMATION_VEGETALE.shp")  # Ouvrir les fichiers locaux du PC
+shp_path <- file.choose()  # Ouvrir les fichiers locaux du PC
 
 shp_etude <- st_read(shp_path)  # Importer le shapefile sélectionné
 
