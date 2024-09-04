@@ -95,7 +95,7 @@ ggplot() +
 # Alors on ajoute un buffer au shp importé
 
 # Définition de la zone tampon
-largeur_tampon <- 2500  # Ajustez cette valeur selon vos besoins
+largeur_tampon <- 500  # Ajustez cette valeur selon vos besoins
 
 # Création de la zone tampon autour du shapefile
 zone_tampon <- st_buffer(shp_etude, dist = largeur_tampon)
