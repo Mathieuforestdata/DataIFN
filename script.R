@@ -51,6 +51,8 @@ plot(st_geometry(shp_etude))  # Visualiser les géométries
 # Géolocalisation des placettes avec les données de latitudes et longitudes
 placette_sf <- st_as_sf(placette, coords = c("XL", "YL"), crs = 2154)
 
+
+happifn:::ifn_as_sf()
 st_crs(placette_sf)  # Test de la projection de la couche placette_sf
 st_crs(shp_etude)  # Test projetction zone d'étude
 
@@ -99,7 +101,7 @@ ggplot() +
 idp_placette_tampon <- placette_tampon$IDP
 
 # Filtre ARBRE
-arbre_zone_etude <- arbre_ifn[arbre_ifn$IDP %in% idp_placette_tampon, ]
+arbre_zone_etude <- arbre[arbre$IDP %in% idp_placette_tampon, ]
 
 # Filtre BOIS MORT
 bois_mort_zone_etude <- bois_mort_ifn[bois_mort_ifn$IDP %in% idp_placette_tampon, ]
