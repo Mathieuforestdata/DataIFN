@@ -125,7 +125,7 @@ idp_placette_tampon <- placette_tampon$IDP
 arbre_ifn_total$num_unique <- paste(arbre_ifn_total$IDP, arbre_ifn_total$A, sep = ".")
 
 arbre_ifn_total$Essence <- NA
-arbre_zone_etude <- arbre_ifn_total[new_arbre$IDP %in% idp_placette_tampon, ]
+arbre_zone_etude <- arbre_ifn_total[arbre_ifn_total$IDP %in% idp_placette_tampon, ]
 
 
 arbre_zone_etude$ESPAR[arbre_zone_etude$ESPAR == "" | arbre_zone_etude$ESPAR == " "] <- NA
@@ -136,9 +136,6 @@ arbre_zone_etude_cor <- arbre_zone_etude %>%
   fill(ESPAR, .direction = "downup") %>%  # Remplir les valeurs manquantes par les valeurs non manquantes
   ungroup()  # Désactiver le regroupement
 
-# Trier les données par `num_unique` dans l'ordre croissant
-data_sorted <- data_filled %>% 
-  arrange(num_unique)
 
 # Boucle pour parcourir chaque ligne du tableau `arbres`
 for (i in 1:nrow(arbre_zone_etude_cor)) {
