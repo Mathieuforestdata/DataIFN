@@ -14,14 +14,13 @@ install.packages("ggplot2")
 install.packages("dplyr")
 
 # Installation du dossier de travail ----
-# Attention, dossier de travail individuel à chaque personne !!!
-
-setwd("C:/cours APT/3A R/DataIFN")
+setwd(dirname(rstudioapi::getActiveDocumentContext()$path))
+dir <- getwd()
 
 
 # Installation des extensions Github ----
 
-remotes::install_github("Jeremy-borderieux/FrenchNFIfindeR")
+#remotes::install_github("Jeremy-borderieux/FrenchNFIfindeR")
 devtools::install_github("paul-carteron/happifn")
 
 # Installation des librairies ----
