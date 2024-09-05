@@ -35,7 +35,10 @@ library(dplyr)
 library(tidyr)
 
 # Chargement de la fonction principal de récupération des données IFN ----
-get_ifn_all()
+#get_ifn_all()
+get_dataset_names()
+arbre <- get_ifn("arbre")
+placette <- get_ifn("placette")
 metadata <-get_ifn_metadata()  # Chargement des metadonnee
 
 # On charge indépendament toutes les listes de metadata
@@ -148,9 +151,9 @@ for (i in 1:nrow(arbre_zone_etude_cor)) {
   }
 }
 
-
+# On sélectionne uniquement quelques colonnes utile
 arbre_zone_etude_cor <- arbre_zone_etude_cor %>%
-  select(CAMPAGNE, num_unique, Essence, C13, HTOT, HDEC, V, W, IR5, IR1) %>%
+  select(CAMPAGNE, num_unique, Essence, C13,C0, HTOT, HDEC, V, W, IR5, IR1) %>%
   
   pivot_wider(names_from = CAMPAGNE,   # Créer des colonnes pour chaque année
               values_from = C13) %>%  # Les valeurs à placer dans ces colonnes sont les circonférences mesurées
@@ -158,11 +161,34 @@ arbre_zone_etude_cor <- arbre_zone_etude_cor %>%
   group_by(num_unique) %>%
   summarise(across(everything(), ~ first(na.omit(.)), .names = "{col}"), .groups = "drop")
   
-
-
-
-# Afficher le nouveau dataframe
-
+# On cherche la circonférence max dans la liste
+arbre_zone_etude_cor <- arbre_zone_etude_cor %>%
+  # On vérifie que toutes les colonnes de date de mesure soit numérique
+  mutate(across(starts_with("20"), as.numeric)) %>%
+  rowwise() %>%
+  # Dans toutes les colonnes date, on cherche la valeur max de circonférence
+  mutate(circonference_max = max(c_across(starts_with("20")), na.rm = TRUE),
+         circonference_min = min(c_across(starts_with("20")), na.rm = TRUE),
+         acc_moy = circonference_max - circonference_min) %>%
+  ungroup() %>%
+  
+  
+  
+  
+  
+  # On calcul le diamètre de la circonférence max
+  mutate(diametre = circonference_max / pi) %>%  # Diamètre exacte
+  mutate(diametre = round(diametre / 0.001) * 0.001*100) %>%
+  mutate(class_diametre = round(diametre /5) * 5) %>% # On arrondi
+  
+  # On définis les catégories de diamètre
+  mutate(cat_diam = case_when(
+    diametre >= 7.5 & diametre < 22.5 ~ "PB",   # Petite Bois (PB)
+    diametre >= 22.5 & diametre < 47.5 ~ "BM",  # Bois Moyen (BM)
+    diametre >= 47.5 & diametre < 67.5 ~ "GB",  # Gros Bois (GB)
+    diametre >= 67.5 ~ "TGB",                  # Très Gros Bois (TGB)
+    TRUE ~ NA_character_                       # Gérer les cas manquants ou en dehors des intervalles
+  ))
 
 
 
@@ -200,3 +226,9 @@ View(ser)
 # IR5 = Accroissement radial sur 5ans
 # IR1 = Accroissement radial sur 1ans
 
+
+# catégorie de grosseur des bois
+# PB [7,5 - 22,5[
+# BM [22,5 - 47,5[
+# GB [47,5 - 67,5[
+# TGB [67,5 [
