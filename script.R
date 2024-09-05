@@ -88,7 +88,7 @@ ggplot() +
 # Alors on ajoute un buffer au shp importé
 
 # Définition de la zone tampon
-largeur_tampon <- 2500  # Ajustez cette valeur selon vos besoins
+largeur_tampon <- 1000  # Ajustez cette valeur selon vos besoins
 
 # Création de la zone tampon autour du shapefile
 zone_tampon <- st_buffer(shp_etude, dist = largeur_tampon)
@@ -148,9 +148,25 @@ for (i in 1:nrow(arbre_zone_etude_cor)) {
   }
 }
 
-# On ne conserve que quelques colonne intéressante pour le traitement
+
 arbre_zone_etude_cor <- arbre_zone_etude_cor %>%
-  select(CAMPAGNE, num_unique, Essence, C13, HTOT, HDEC, V, W, IR5, IR1)
+  select(CAMPAGNE, num_unique, Essence, C13, HTOT, HDEC, V, W, IR5, IR1) %>%
+  
+  pivot_wider(names_from = CAMPAGNE,   # Créer des colonnes pour chaque année
+              values_from = C13) %>%  # Les valeurs à placer dans ces colonnes sont les circonférences mesurées
+  
+  group_by(num_unique) %>%
+  summarise(across(everything(), ~ first(na.omit(.)), .names = "{col}"), .groups = "drop")
+  
+
+
+
+# Afficher le nouveau dataframe
+
+
+
+
+
 
 
 
