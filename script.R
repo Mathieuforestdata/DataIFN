@@ -43,16 +43,9 @@ code <- metadata[[1]]
 units <- metadata[[2]]
 units_value_set <- metadata[[3]]
 
-# Importation de toutes les placettes et arbre
-arbre_ifn_total <- read.csv("./export_dataifn_2005_2022/ARBRE.csv",
-                header = TRUE,  # Signifie que la première ligne est le nom des colones
-                sep = ';')  # La décimal est une virgule
-placette_ifn_total <- read.csv("./export_dataifn_2005_2022/PLACETTE.csv",
-                            header = TRUE,  # Signifie que la première ligne est le nom des colones
-                            sep = ';')  # La décimal est une virgule
 
 # Géolocalisation des placettes avec les données de latitudes et longitudes
-placette_sf <- st_as_sf(placette_ifn_total, coords = c("XL", "YL"), crs = 2154)
+#placette_sf <- st_as_sf(placette_ifn_total, coords = c("XL", "YL"), crs = 2154)
 
 
 # On identifie les codes essences
@@ -73,13 +66,13 @@ plot(st_geometry(shp_etude))  # Visualiser les géométries
 
 
 # Selection des placettes IFN appartenant à la zone d'étude ----
-st_crs(placette_sf)  # Test de la projection de la couche placette_sf
+st_crs(placette)  # Test de la projection de la couche placette_sf
 st_crs(shp_etude)  # Test projetction zone d'étude
 
 
 
 # Croisement des emplacements de placette avec le shapefile importé
-placette_ifn_zone_etude <- st_intersection(placette_sf, shp_etude)
+placette_ifn_zone_etude <- st_intersection(placette, shp_etude)
 
 # Affichage des placettes et de la zone d'étude strict
 ggplot() +
@@ -95,12 +88,12 @@ ggplot() +
 # Alors on ajoute un buffer au shp importé
 
 # Définition de la zone tampon
-largeur_tampon <- 500  # Ajustez cette valeur selon vos besoins
+largeur_tampon <- 2500  # Ajustez cette valeur selon vos besoins
 
 # Création de la zone tampon autour du shapefile
 zone_tampon <- st_buffer(shp_etude, dist = largeur_tampon)
 
-placette_tampon <- st_intersection(placette_sf, zone_tampon)
+placette_tampon <- st_intersection(placette, zone_tampon)
 
 # Affichage de la zone, avec le tampon et  les placettes de l'IFN
 ggplot() +
@@ -122,10 +115,10 @@ idp_placette_tampon <- placette_tampon$IDP
 
 # Filtre ARBRE
 # Construction numéro unique arbre
-arbre_ifn_total$num_unique <- paste(arbre_ifn_total$IDP, arbre_ifn_total$A, sep = ".")
+arbre$num_unique <- paste(arbre$IDP, arbre$A, sep = ".")
 
-arbre_ifn_total$Essence <- NA
-arbre_zone_etude <- arbre_ifn_total[arbre_ifn_total$IDP %in% idp_placette_tampon, ]
+arbre$Essence <- NA
+arbre_zone_etude <- arbre[arbre$IDP %in% idp_placette_tampon, ]
 
 
 arbre_zone_etude$ESPAR[arbre_zone_etude$ESPAR == "" | arbre_zone_etude$ESPAR == " "] <- NA
@@ -155,20 +148,28 @@ for (i in 1:nrow(arbre_zone_etude_cor)) {
   }
 }
 
+# On ne conserve que quelques colonne intéressante pour le traitement
+arbre_zone_etude_cor <- arbre_zone_etude_cor %>%
+  select(CAMPAGNE, num_unique, Essence, C13, HTOT, HDEC, V, W, IR5, IR1)
+
+
+
+
 
 # Filtre BOIS MORT
 bois_mort_zone_etude <- bois_mort_ifn[bois_mort_ifn$IDP %in% idp_placette_tampon, ]
 
 
 
+check_happifndata() # PAckage stockage data
+library(happifndata)
 
 
+data(rfn)
+tmap::qtm(rfn)
 
 
-
-
-
-
+View(ser)
 
 # Descriptif de la donnée brut ARBRE ----
 
