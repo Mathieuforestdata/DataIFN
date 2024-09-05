@@ -21,8 +21,6 @@ dir <- getwd()
 
 
 # Installation des extensions Github ----
-
-#remotes::install_github("Jeremy-borderieux/FrenchNFIfindeR")  # Nes pas installer
 devtools::install_github("paul-carteron/happifn")
 
 # Installation des librairies ----
@@ -34,9 +32,9 @@ library(ggplot2)
 library(dplyr)
 library(tidyr)
 
-# Chargement de la fonction principal de récupération des données IFN ----
+# Chargement des fonction de récupération des données IFN ----
 #get_ifn_all()
-get_dataset_names()
+get_dataset_names()  # Permet d'obtenir les noms des fichiers fournis par IFN
 arbre <- get_ifn("arbre")
 placette <- get_ifn("placette")
 metadata <-get_ifn_metadata()  # Chargement des metadonnee
@@ -45,11 +43,6 @@ metadata <-get_ifn_metadata()  # Chargement des metadonnee
 code <- metadata[[1]]
 units <- metadata[[2]]
 units_value_set <- metadata[[3]]
-
-
-# Géolocalisation des placettes avec les données de latitudes et longitudes
-#placette_sf <- st_as_sf(placette_ifn_total, coords = c("XL", "YL"), crs = 2154)
-
 
 # On identifie les codes essences
 code_essence <- units_value_set %>% 
@@ -72,26 +65,14 @@ plot(st_geometry(shp_etude))  # Visualiser les géométries
 st_crs(placette)  # Test de la projection de la couche placette_sf
 st_crs(shp_etude)  # Test projetction zone d'étude
 
-
-
 # Croisement des emplacements de placette avec le shapefile importé
-placette_ifn_zone_etude <- st_intersection(placette, shp_etude)
-
-# Affichage des placettes et de la zone d'étude strict
-ggplot() +
-  geom_sf(data = shp_etude, 
-          fill = "lightblue",  # Remplissage bleu
-          color = "black") +  # Contour noir
-  geom_sf(data = placette_ifn_zone_etude, 
-          color = "red") +  # Placettes en rouge
-  theme_minimal() +
-  labs(title = "Placettes dans la zone d'étude")
+#placette_ifn_zone_etude <- st_intersection(placette, shp_etude)
 
 # Parfois la zone tampon est trop petite
 # Alors on ajoute un buffer au shp importé
 
 # Définition de la zone tampon
-largeur_tampon <- 1000  # Ajustez cette valeur selon vos besoins
+largeur_tampon <- 2000  # Ajustez cette valeur selon vos besoins
 
 # Création de la zone tampon autour du shapefile
 zone_tampon <- st_buffer(shp_etude, dist = largeur_tampon)
@@ -118,15 +99,16 @@ idp_placette_tampon <- placette_tampon$IDP
 
 # Filtre ARBRE
 # Construction numéro unique arbre
-arbre$num_unique <- paste(arbre$IDP, arbre$A, sep = ".")
 
-arbre$Essence <- NA
 arbre_zone_etude <- arbre[arbre$IDP %in% idp_placette_tampon, ]
-
-
+arbre_zone_etude$Essence <- NA
+arbre_zone_etude$num_unique <- paste(arbre_zone_etude$IDP,
+                                     arbre_zone_etude$A,
+                                     sep = ".")
+# Les sections vides dans ESPAR sont remplacé par NA
 arbre_zone_etude$ESPAR[arbre_zone_etude$ESPAR == "" | arbre_zone_etude$ESPAR == " "] <- NA
 
-# Remplir les valeurs manquantes pour chaque groupe de numéros uniques
+# Remplir les valeurs manquantes de code ESPAR pour chaque arbre
 arbre_zone_etude_cor <- arbre_zone_etude %>%
   group_by(num_unique) %>%          # Grouper par le numéro unique
   fill(ESPAR, .direction = "downup") %>%  # Remplir les valeurs manquantes par les valeurs non manquantes
@@ -194,24 +176,6 @@ arbre_zone_etude_cor <- arbre_zone_etude_cor %>%
 
 
 
-
-
-
-
-# Filtre BOIS MORT
-bois_mort_zone_etude <- bois_mort_ifn[bois_mort_ifn$IDP %in% idp_placette_tampon, ]
-
-
-
-check_happifndata() # PAckage stockage data
-library(happifndata)
-
-
-data(rfn)
-tmap::qtm(rfn)
-
-
-View(ser)
 
 # Descriptif de la donnée brut ARBRE ----
 
