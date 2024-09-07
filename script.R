@@ -47,6 +47,7 @@ library(mapedit)
 get_dataset_names()  # Permet d'obtenir les noms des fichiers fournis par IFN
 arbre <- get_ifn("arbre")
 placette <- get_ifn("placette")
+ecologie <- get_ifn("ecologie")
 metadata <-get_ifn_metadata()  # Chargement des metadonnee
 
 # On charge indépendament toutes les listes de metadata
@@ -58,10 +59,23 @@ units_value_set <- metadata[[3]]
 code_essence <- units_value_set %>% 
   filter(units == "ESPAR")
 
+code_ecologie <- units_value_set %>%
+  filter(units %in% c("TOPO", "OBSTOPO", "HUMUS", "OLT", "TSOL", "TEXT1", "TEXT2", "ROCHED0"))
+
+
+get_import_zone()
+
+get_ecologie_zone()
+
+
+
+
+
+
 
 
 # Calcul de l'accroissement en G (m/ha/an)
-get_acc_V(5000)
+get_acc_V(3000)
 
 
 # Modif roman 06/09, fonction sylvoécorégion ----
