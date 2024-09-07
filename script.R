@@ -61,7 +61,7 @@ code_essence <- units_value_set %>%
 
 
 # Calcul de l'accroissement en G (m/ha/an)
-get_acc_G(1000)
+get_acc_V(5000)
 
 
 # Modif roman 06/09, fonction sylvoécorégion ----
