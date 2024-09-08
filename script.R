@@ -23,7 +23,7 @@ install.packages("leaflet")
 # Installation du dossier de travail ----
 setwd(dirname(rstudioapi::getActiveDocumentContext()$path))
 dir <- getwd()
-check_happifndata()
+
 
 
 # Installation des extensions Github ----
@@ -32,6 +32,7 @@ devtools::install_github("paul-carteron/happifn")
 # Installation des librairies ----
 library(happifn)
 library(happifndata)
+check_happifndata()
 library(FrenchNFIfindeR)
 library(data.table)
 library(sf)
@@ -43,6 +44,7 @@ library(kableExtra)
 library(mapview)
 library(mapedit)
 library(leaflet)
+
 
 # Chargement des fonction de récupération des données IFN ----
 #get_ifn_all()
@@ -60,6 +62,8 @@ units_value_set <- metadata[[3]]
 # On identifie les codes essences
 code_essence <- units_value_set %>% 
   filter(units == "ESPAR")
+code_veget <- units_value_set %>% 
+  filter(units == "VEGET5")
 
 code_ecologie <- units_value_set %>%
   filter(units %in% c("TOPO", "OBSTOPO", "HUMUS", "OLT", "TSOL", "TEXT1", "TEXT2", "ROCHED0"))
@@ -69,38 +73,30 @@ get_import_zone()
 
 get_ecologie_zone()
 
-get_acc_G(10)
+get_acc_G()
 
 get_import_zone()
 
-st_crs(shp_etude)
-st_crs(placette)
+
 
 # Calcul de l'accroissement en G (m/ha/an)
-get_acc_V(2000)
+get_acc_V(200)
+
 
 
 # Modif roman 06/09, fonction sylvoécorégion ----
 
-get_placette_sylvo_eco("Ardenne primaire")
+get_sylvo_eco("Ardenne primaire")
 
-qtm(placettes_sylvo_eco)
-  
+qtm(shp_etude)
 
-  
-get_arbre_sylvo_eco<- function(sylvoecoregion){
-  placette_etude <- get_placette_sylvo_eco(sylvoecoregion)
-  for (i in 1:nrow(placette_etude)){
-    for (j in 1:nrow(arbre)){
-      if (arbre[j, "IDP"] == placette_etude[i, "IDP"]) {
-        arbre_etudie <- add_row(arbre_etudie, arbre[j, ])
-      }
-        
-    }
-  }
-  return(arbre_etudie)
-}
+rfn <<- data("rfn")
+qtm(rfn)
 
-get_arbre_sylvo_eco("Ardenne primaire") 
+get_reg_foret("CHAMPAGNE CRAYEUSE")
   
 qtm(test)
+
+
+
+
