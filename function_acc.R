@@ -9,11 +9,34 @@
 
 # Fonction importation zone d'étude particulière ----
 get_import_zone <- function(){
-  shp_path <- file.choose()  # Ouvrir les fichiers locaux du PC
+  #shp_path <- file.choose()  # Ouvrir les fichiers locaux du PC
+  #shp_etude <<- st_read(shp_path)  # Importer le shapefile sélectionné ds l'env
+  # Créer une carte leaflet centrée sur la France
+  france_center <- c(2.2137, 46.2276)  # Longitude, Latitude approximative de la France
+  map <- leaflet() %>%
+    addTiles() %>%
+    setView(lng = france_center[1], lat = france_center[2], zoom = 6)  # Centrer sur la France avec un zoom de 6
   
-  shp_etude <<- st_read(shp_path)  # Importer le shapefile sélectionné ds l'env
-  # Permet à l'utilisateur de dessiner la zone d'étude
-  #drawn_zone <- editMap()
+  # Utiliser cette carte avec drawFeatures pour dessiner la zone d'étude
+  drawn_zone <- drawFeatures(map = map)
+  
+  # Vérifier si quelque chose a été dessiné
+  if (is.null(drawn_zone)) {
+    stop("Aucune zone n'a été dessinée. Veuillez dessiner une zone avant de continuer.")
+  }
+  
+  # Convertir l'objet dessiné en sf si nécessaire
+  shp_etude <- st_as_sf(drawn_zone)
+  
+  # Vérifier si la conversion a bien fonctionné
+  if (is.null(shp_etude)) {
+    stop("Erreur lors de la conversion en objet sf.")
+  }
+  # Assurez-vous que les coordonnées sont correctement transformées si nécessaire
+  shp_etude <- st_transform(shp_etude, 2154)
+  
+  # Sauvegarder la zone d'étude dans l'environnement global
+  shp_etude <<- shp_etude
   
   # Convertir l'objet en sf si nécessaire
   #shp_etude <<- st_as_sf(drawn_zone$finished)  # "finished" contient la géométrie dessinée
@@ -201,6 +224,8 @@ get_acc_G <- function(buffer = 1500){
   table_recap_final_G <<- table_recap_global %>%
     left_join(table_recap_global_sans_diam, by = "Essence")  # Ajouter la moyenne sans catégorie de diamètre
   
+  View(table_recap_final_G)
+  
   return(table_recap_final_G)
 }
 
@@ -345,14 +370,16 @@ get_acc_V <- function(buffer = 1500){
     ) %>%
     group_by(Essence) %>%  # Groupement par essence pour faire la moyenne globale de toutes les placettes
     summarise(
-      moyenne_accroissement_sans_diam = mean(moyenne_accroissement_sans_diam, na.rm = TRUE),  # Moyenne globale sur toutes les placettes
+      moy_acc_V_m3_ha = mean(moyenne_accroissement_sans_diam, na.rm = TRUE),  # Moyenne globale sur toutes les placettes
       .groups = 'drop'
     ) %>%
-    mutate(moy_acc_V_m3_ha = round(moyenne_accroissement_sans_diam, 3))  # Arrondir à 0.001 près
+    mutate(moy_acc_V_m3_ha = round(moy_acc_V_m3_ha, 3))  # Arrondir à 0.001 près
   
   # Fusionner les résultats avec ou sans catégorie de diamètre
   table_recap_final_V <<- table_recap_global %>%
     left_join(table_recap_global_sans_diam, by = "Essence")  # Ajouter la moyenne sans catégorie de diamètre
+  
+  View(table_recap_final_V)
   
   return(table_recap_final_V)
 }
