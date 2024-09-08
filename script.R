@@ -18,6 +18,7 @@ install.packages("tmap")
 install.packages("kableExtra")
 install.packages("mapview")
 install.packages("mapedit")
+install.packages("leaflet")
 
 # Installation du dossier de travail ----
 setwd(dirname(rstudioapi::getActiveDocumentContext()$path))
@@ -41,13 +42,14 @@ library(tmap);ttm
 library(kableExtra)
 library(mapview)
 library(mapedit)
+library(leaflet)
 
 # Chargement des fonction de récupération des données IFN ----
 #get_ifn_all()
 get_dataset_names()  # Permet d'obtenir les noms des fichiers fournis par IFN
 arbre <- get_ifn("arbre")
 placette <- get_ifn("placette")
-ecologie <- get_ifn("ecologie")
+#ecologie <- get_ifn("ecologie")
 metadata <-get_ifn_metadata()  # Chargement des metadonnee
 
 # On charge indépendament toutes les listes de metadata
@@ -67,15 +69,15 @@ get_import_zone()
 
 get_ecologie_zone()
 
+get_acc_G(10)
 
+get_import_zone()
 
-
-
-
-
+st_crs(shp_etude)
+st_crs(placette)
 
 # Calcul de l'accroissement en G (m/ha/an)
-get_acc_V(3000)
+get_acc_V(2000)
 
 
 # Modif roman 06/09, fonction sylvoécorégion ----
