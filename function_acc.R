@@ -55,13 +55,13 @@ get_import_zone <- function(){
 get_buffer_zone <- function(buffer = 0){
   
   # Création de la zone tampon autour du shapefile
-  zone_tampon <- st_buffer(shp_etude, dist = buffer)
+  zone_tampon <<- st_buffer(shp_etude, dist = buffer)
   
   # Selection des placettes uniquement dans la zone tampon
-  placette_tampon <- st_intersection(placette, zone_tampon)
+  placette_tampon <<- st_intersection(placette, zone_tampon)
   
   # Obtenir les limites combinées de toutes les couches pour ajuster le zoom
-  all_bounds <- st_bbox(st_union(st_geometry(shp_etude),
+  all_bounds <<- st_bbox(st_union(st_geometry(shp_etude),
                                  st_geometry(zone_tampon),
                                  st_geometry(placette_tampon)))
   
@@ -70,6 +70,32 @@ get_buffer_zone <- function(buffer = 0){
   
   # Filtre les arbres ayant le même IDP que les placettes de la zone
   arbre_zone_etude <<- arbre[arbre$IDP %in% idp_placette_tampon, ]
+  
+  
+  # Convertir l'objet dessiné en sf si nécessaire
+  shp_etude <- st_as_sf(shp_etude)
+  
+  # Vérifier si la conversion a bien fonctionné
+  if (is.null(shp_etude)) {
+    stop("Erreur lors de la conversion en objet sf.")
+  }
+  # Assurez-vous que les coordonnées sont correctement transformées
+  # Les données placette IFN étant en lambert 93 (2154)
+  shp_etude <<- st_transform(shp_etude, 2154)
+  
+  return(shp_etude)
+}
+
+# Fonction d'affichage des cartes avec placettes----
+get_read_map <- function(){
+  # Passer en mode interactif avec tmap
+  tmap_mode("view")
+  
+  # Choisir le CRS de la zone d'étude
+  common_crs <- st_crs(shp_etude)  
+  zone_tampon <- st_transform(zone_tampon, common_crs)
+  placette_tampon <- st_transform(placette_tampon, common_crs)
+  
   
   # Calculer le nombre de placettes et d'arbres dans la zone tampon
   nombre_placettes <- nrow(placette_tampon)  # Nombre de placettes dans la zone tampon
@@ -81,18 +107,19 @@ get_buffer_zone <- function(buffer = 0){
   
   # Afficher la carte avec tmap et ajuster le zoom sur toutes les couches
   plot_zone <<- tm_shape(shp_etude, bbox = all_bounds) +  # Zone d'étude originale avec ajustement des limites
-    tm_fill(col = "lightgreen", alpha = 0.5) +  # Remplissage vert avec transparence
+    tm_fill(col = "lightgreen", alpha = 0.3) +  # Remplissage vert avec transparence
     tm_borders(col = "black") +  # Contour noir
     tm_shape(zone_tampon) +  # Zone tampon
     tm_borders(col = "blue", lty = "dashed") +  # Ligne bleue en pointillé
     tm_shape(placette_tampon) +  # Placettes dans la zone tampon
-    tm_symbols(col = "red", size = 0.15) +  # Placettes en rouge
+    tm_symbols(col = "red", size = 0.005) +  # Placettes en rouge
     tm_layout(main.title = titre,
               main.title.size = 1,
               frame = TRUE)  # Ajouter un titre, sans cadre
-  
-  return(print(plot_zone))
+  return(plot_zone)
+
 }
+
 
 
 # Fonction d'arrangement des données par placette ----
@@ -242,7 +269,7 @@ get_calc_V <- function(){
       HTOT = as.numeric(HTOT),
       acc_V_ha = if_else(
         circonference_max != circonference_min & annee_max != annee_min,
-        ((0.8 * g_max * HTOT)*w) - ((0.8 * g_min * HTOT*w)) / (annee_max - annee_min),
+        (((0.65 * g_max * HTOT) - (0.65 * g_min * HTOT))*w )/ (annee_max - annee_min),
         NA_real_  # Sinon NA
       ))
   
@@ -376,7 +403,6 @@ get_acc_G <- function(buffer = 0){
 }
 
 
-
 # Obtenir les placettes et arbre mesurer d'une sylvoecoregion ----
 get_sylvo_eco <- function(sylvoecoregion) {
   # Charger les données ser
@@ -384,9 +410,11 @@ get_sylvo_eco <- function(sylvoecoregion) {
   
   # Filtrer le polygone correspondant au nom donné
   shp_etude <<- ser %>% filter(ser$NomSER == sylvoecoregion)
-  get_buffer_zone()
   
-  return(shp_etude)
+  get_buffer_zone()
+  get_read_map()
+  
+  return(plot_zone)
 }
 
 # Obtenir les placettes et arbre mesurer d'une région forestière ----
@@ -397,12 +425,65 @@ get_reg_foret <- function(reg_foret) {
   # Filtrer le polygone correspondant au nom donné
   shp_etude <<- rfn %>% filter(rfn$REGIONN == reg_foret)
   get_buffer_zone()
-  qtm(shp_etude)
+  get_read_map()
   
-  return(shp_etude)
+  return(plot_zone)
 }
 
+# Obtenir l'accroissement en G/m²/ha/an d'une sylvoecoregion----
+get_acc_G_sylvo_eco <- function(sylvoecoregion){
+  get_sylvo_eco(sylvoecoregion)
+  get_arrange_data()
+  get_species()
+  get_data_dendro()
+  get_calc_G()
+  get_read_acc_G()
+  View(table_recap_final_G)
+  
+  return(plot_zone)
+  
+}
 
+# Obtenir l'accroissement en G/m²/ha/an d'une Région forestière----
+get_acc_G_reg_foret <- function(reg_foret){
+  get_reg_foret(reg_foret)
+  get_arrange_data()
+  get_species()
+  get_data_dendro()
+  get_calc_G()
+  get_read_acc_G()
+  View(table_recap_final_G)
+  
+  return(plot_zone)
+  
+}
 
+# Obtenir l'accroissement en V/m3/ha/an d'une sylvoecoregion----
+get_acc_V_sylvo_eco <- function(sylvoecoregion){
+  get_sylvo_eco(sylvoecoregion)
+  get_arrange_data()
+  get_species()
+  get_data_dendro()
+  get_calc_V()
+  get_read_acc_V()
+  View(table_recap_final_V)
+  
+  return(plot_zone)
+  
+}
+
+# Obtenir l'accroissement en V/m3/ha/an d'une région forestière----
+get_acc_V_reg_foret <- function(reg_foret){
+  get_reg_foret(reg_foret)
+  get_arrange_data()
+  get_species()
+  get_data_dendro()
+  get_calc_V()
+  get_read_acc_V()
+  View(table_recap_final_V)
+  
+  return(plot_zone)
+  
+}
 
 
