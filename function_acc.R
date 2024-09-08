@@ -315,7 +315,7 @@ get_read_acc_G <- function(){
       moyenne_accroissement_sans_diam = mean(moyenne_accroissement_sans_diam, na.rm = TRUE),  # Moyenne globale sur toutes les placettes
       .groups = 'drop'
     ) %>%
-    mutate(accroisselent_G_ha_an = round(moyenne_accroissement_sans_diam, 3))  # Arrondir à 0.001 près
+    mutate(accroissement_G_ha_an = round(moyenne_accroissement_sans_diam, 3))  # Arrondir à 0.001 près
   
   # Fusionner les résultats avec ou sans catégorie de diamètre
   table_recap_final_G <<- table_recap_global %>%
@@ -380,26 +380,30 @@ get_read_acc_V <- function(){
 get_acc_V <- function(buffer = 0){
   get_import_zone()
   get_buffer_zone(buffer)
+  get_read_map()
   get_arrange_data()
   get_species()
   get_data_dendro()
   get_calc_V()
   get_read_acc_V()
+  View(table_recap_final_V)
   
-  return(table_recap_final_V)
+  return(plot_zone)
 }
 
 # Fonction intégral calcul de l'accroissement en G/ha/an sur les placettes
 get_acc_G <- function(buffer = 0){
   get_import_zone()
   get_buffer_zone(buffer)
+  get_read_map()
   get_arrange_data()
   get_species()
   get_data_dendro()
   get_calc_G()
   get_read_acc_G()
+  View(table_recap_final_G)
     
-  return(table_recap_final_G)
+  return(plot_zone)
 }
 
 
