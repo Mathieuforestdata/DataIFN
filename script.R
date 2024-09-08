@@ -80,22 +80,28 @@ get_import_zone()
 
 
 # Calcul de l'accroissement en G (m/ha/an)
-get_acc_V(200)
+get_acc_V()
+get_reg_foret("VOSGES CRISTALLINES")
 
-
+get_acc_G_sylvo_eco("Ardenne primaire")
 
 # Modif roman 06/09, fonction sylvoécorégion ----
 
-get_sylvo_eco("Ardenne primaire")
+get_sylvo_eco("Ouest-Bretagne et Nord-Cotentin")
 
 qtm(shp_etude)
+
+st_geometry(shp_etude)
 
 rfn <<- data("rfn")
 qtm(rfn)
 
-get_reg_foret("CHAMPAGNE CRAYEUSE")
+get_acc_G_reg_foret("PAYS-HAUT")
   
 qtm(test)
+class(plot_zone)
+class(zone_tampon)
+class(placette_tampon)
 
 
 
