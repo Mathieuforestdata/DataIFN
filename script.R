@@ -65,7 +65,7 @@ code_essence <- units_value_set %>%
 code_veget <- units_value_set %>% 
   filter(units == "VEGET5")
 
-code_ecologie <- units_value_set %>%
+#code_ecologie <- units_value_set %>%
   filter(units %in% c("TOPO", "OBSTOPO", "HUMUS", "OLT", "TSOL", "TEXT1", "TEXT2", "ROCHED0"))
 
 
@@ -75,6 +75,7 @@ get_acc_G()
 
 get_acc_V()
 
+get_acc_D()
 
 
 
