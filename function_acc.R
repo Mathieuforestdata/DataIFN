@@ -122,6 +122,47 @@ get_read_map <- function(){
 
 
 
+
+# Fonction de calcul du taux d'accroissement
+get_taux_acc_g <- function(){
+  capital_placette <<- arbre_zone_etude_cor %>%
+    group_by(Essence, IDP) %>%
+    summarise(
+      capital_essence = sum((g_max * w), na.rm = TRUE),  # Somme de g_max par essence et placette
+      acc_essence = sum(
+        if_else(circonference_max != circonference_min, acc_g_ha, NA_real_), 
+        na.rm = TRUE  # Ignorer les NA générés lorsque les circonférences sont égales
+      ),
+      taux_acc_G = acc_essence * 100 / capital_essence,# Somme de acc_g_ha par essence et placette si circonférence_max != circonférence_min
+      .groups = 'drop'  # Retirer les groupes après le résumé
+    )
+  View(capital_placette)
+  
+  return(capital_placette)
+}
+
+get_taux_acc_V <- function(){
+  capital_placette <<- arbre_zone_etude_cor %>%
+    as.numeric(arbre_zone_etude_cor$V)
+    group_by(Essence, IDP) %>%
+    summarise(
+      volume_essence = sum((V * w), na.rm = TRUE),  # Somme de V par essence et placette
+      acc_essence = sum(
+        if_else(circonference_max != circonference_min, acc_V_ha, NA_real_), 
+        na.rm = TRUE  # Ignorer les NA générés lorsque les circonférences sont égales
+      ),
+      taux_acc_V = acc_essence * 100 / volume_essence,# Somme de acc_g_ha par essence et placette si circonférence_max != circonférence_min
+      .groups = 'drop'  # Retirer les groupes après le résumé
+    )
+  View(capital_placette)
+  
+  return(capital_placette)
+}
+
+  
+
+
+
 # Fonction d'arrangement des données par placette ----
 get_arrange_data <- function(){
   
@@ -222,11 +263,14 @@ get_data_dendro <- function(){
       circonference_max >= 1.175 ~ "GB",  # Gros Bois (GB))
       TRUE ~ NA_character_ ))%>%
     
-    mutate(w = case_when(
-      cat_diam == "PB" ~ 88.4,
-      cat_diam == "BM" ~ 39.3,
-      cat_diam == "GB" ~ 14.1,
-      TRUE ~ NA_real_)) %>%
+    mutate(W = as.numeric(W),  # Transformer la variable W en numeric
+           w = case_when(
+             !is.na(W) ~ W,  # Si W n'est pas NA, w prend la valeur de W
+             is.na(W) & cat_diam == "PB" ~ 88.4,  # Si W est NA et cat_diam est "PB", w prend 88.4
+             is.na(W) & cat_diam == "BM" ~ 39.3,  # Si W est NA et cat_diam est "BM", w prend 39.3
+             is.na(W) & cat_diam == "GB" ~ 14.1,  # Si W est NA et cat_diam est "GB", w prend 14.1
+             TRUE ~ NA_real_  # Si aucune condition n'est remplie, w prend NA
+           )) %>%
     
     mutate(
       # On calcul le diamètre de l'arbre
@@ -246,6 +290,9 @@ get_data_dendro <- function(){
 }
 
 
+
+
+
 # Fonction calcul accroissement en G/ha/an ----
 get_calc_G <- function(){
   arbre_zone_etude_cor <<- arbre_zone_etude_cor %>%
@@ -257,6 +304,7 @@ get_calc_G <- function(){
         ((g_max - g_min) * w / (annee_max - annee_min)),
         NA_real_  # Sinon NA
       ))
+  return(arbre_zone_etude_cor)
   
 }
 
@@ -319,7 +367,7 @@ get_read_acc_G <- function(){
     arrange(Essence)  # Trier par essence
   
   # Calculer la moyenne globale par essence sans distinction de catégorie de diamètre
-  table_recap_global_sans_diam <- arbre_zone_etude_cor %>%
+  table_recap_global_sans_diam <<- arbre_zone_etude_cor %>%
     filter(is.finite(acc_g_ha)) %>%
     group_by(IDP, Essence) %>%  # Groupement par Placette et Essence uniquement
     summarise(
@@ -328,17 +376,20 @@ get_read_acc_G <- function(){
     ) %>%
     group_by(Essence) %>%  # Groupement par essence pour faire la moyenne globale de toutes les placettes
     summarise(
-      moyenne_accroissement_sans_diam = mean(moyenne_accroissement_sans_diam, na.rm = TRUE),  # Moyenne globale sur toutes les placettes
+      moy_acc_g_m2_ha = mean(moyenne_accroissement_sans_diam, na.rm = TRUE),  # Moyenne globale sur toutes les placettes
+      moy_taux_acc_G = mean(capital_placette$taux_acc_G[capital_placette$Essence == Essence], na.rm = TRUE),
       .groups = 'drop'
     ) %>%
-    mutate(accroissement_G_ha_an = round(moyenne_accroissement_sans_diam, 3))  # Arrondir à 0.001 près
+    mutate(moy_acc_g_m2_ha = round(moy_acc_g_m2_ha, 3),
+           moy_taux_acc_G = round(moy_taux_acc_G,1))  # Arrondir à 0.001 près
   
   # Fusionner les résultats avec ou sans catégorie de diamètre
-  table_recap_final_G <<- table_recap_global %>%
+  table_recap_final_V <<- table_recap_global %>%
     left_join(table_recap_global_sans_diam, by = "Essence")  # Ajouter la moyenne sans catégorie de diamètre
   
   View(table_recap_final_G)
-  return(table_recap_final_G)
+  
+  return()
   
 }
 get_read_acc_V <- function(){
@@ -378,9 +429,12 @@ get_read_acc_V <- function(){
     group_by(Essence) %>%  # Groupement par essence pour faire la moyenne globale de toutes les placettes
     summarise(
       moy_acc_V_m3_ha = mean(moyenne_accroissement_sans_diam, na.rm = TRUE),  # Moyenne globale sur toutes les placettes
+      moy_taux_acc_V = mean(capital_placette$taux_acc_V[capital_placette$Essence == Essence], na.rm = TRUE),
       .groups = 'drop'
     ) %>%
-    mutate(moy_acc_V_m3_ha = round(moy_acc_V_m3_ha, 3))  # Arrondir à 0.001 près
+    mutate(
+      moy_acc_V_m3_ha = round(moy_acc_V_m3_ha, 3),
+      moy_taux_acc_V = round( moy_taux_acc_V, 1))  # Arrondir à 0.001 près
   
   # Fusionner les résultats avec ou sans catégorie de diamètre
   table_recap_final_V <<- table_recap_global %>%
@@ -453,6 +507,7 @@ get_acc_V <- function(buffer = 0){
   get_species()
   get_data_dendro()
   get_calc_V()
+  get_taux_acc_V()
   get_read_acc_V()
   View(table_recap_final_V)
   
@@ -468,6 +523,7 @@ get_acc_G <- function(buffer = 0){
   get_species()
   get_data_dendro()
   get_calc_G()
+  get_taux_acc_g()
   get_read_acc_G()
   View(table_recap_final_G)
     
