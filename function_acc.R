@@ -51,6 +51,30 @@ get_import_zone <- function(){
   return (shp_etude)  # return les géométrie chargé
 }
 
+
+# Fonction obtention des peuplements sur les placettes----
+#get_pplmt <- function(buffer = 0){
+  get_import_zone()
+  get_buffer_zone(buffer)
+  
+  habitat_placette <<- habitat[habitat$IDP %in% idp_placette_tampon, ]
+  
+  # Effectuer une jointure gauche entre `arbre_zone_etude` et `habitat_placette` sur la colonne `IDP`
+  arbre_zone_etude <<- arbre_zone_etude %>%
+    group_by(IDP) %>%  # Groupement par essence pour faire la moyenne globale de toutes les placettes
+    summarise(
+      PPLT = habitat_placette$CD_HAB, na.rm = TRUE,
+      .groups = 'drop'
+    )
+  
+  get_read_map()
+  
+  return(habitat_placette)
+  
+}
+
+
+
 # Fonction obtention buffer et placette à l'intérieur ----
 get_buffer_zone <- function(buffer = 0){
   
@@ -66,7 +90,7 @@ get_buffer_zone <- function(buffer = 0){
                                  st_geometry(placette_tampon)))
   
   # Extraire les IDP des placettes dans la zone tampon
-  idp_placette_tampon <- placette_tampon$IDP
+  idp_placette_tampon <<- placette_tampon$IDP
   
   # Filtre les arbres ayant le même IDP que les placettes de la zone
   arbre_zone_etude <<- arbre[arbre$IDP %in% idp_placette_tampon, ]
@@ -83,7 +107,7 @@ get_buffer_zone <- function(buffer = 0){
   # Les données placette IFN étant en lambert 93 (2154)
   shp_etude <<- st_transform(shp_etude, 2154)
   
-  return(shp_etude)
+  return(list(idp_placette_tampon,arbre_zone_etude))
 }
 
 # Fonction d'affichage des cartes avec placettes----
@@ -143,7 +167,7 @@ get_taux_acc_g <- function(){
 
 get_taux_acc_V <- function(){
   capital_placette <<- arbre_zone_etude_cor %>%
-    as.numeric(arbre_zone_etude_cor$V)
+    as.numeric(V)
     group_by(Essence, IDP) %>%
     summarise(
       volume_essence = sum((V * w), na.rm = TRUE),  # Somme de V par essence et placette
@@ -291,8 +315,6 @@ get_data_dendro <- function(){
 
 
 
-
-
 # Fonction calcul accroissement en G/ha/an ----
 get_calc_G <- function(){
   arbre_zone_etude_cor <<- arbre_zone_etude_cor %>%
@@ -317,7 +339,7 @@ get_calc_V <- function(){
       HTOT = as.numeric(HTOT),
       acc_V_ha = if_else(
         circonference_max != circonference_min & annee_max != annee_min,
-        (((0.65 * g_max * HTOT) - (0.65 * g_min * HTOT))*w )/ (annee_max - annee_min),
+        #(((0.65 * g_max * HTOT) - (0.65 * g_min * HTOT))*w )/ (annee_max - annee_min),
         NA_real_  # Sinon NA
       ))
   
@@ -384,7 +406,7 @@ get_read_acc_G <- function(){
            moy_taux_acc_G = round(moy_taux_acc_G,1))  # Arrondir à 0.001 près
   
   # Fusionner les résultats avec ou sans catégorie de diamètre
-  table_recap_final_V <<- table_recap_global %>%
+  table_recap_final_G <<- table_recap_global %>%
     left_join(table_recap_global_sans_diam, by = "Essence")  # Ajouter la moyenne sans catégorie de diamètre
   
   View(table_recap_final_G)
@@ -525,7 +547,6 @@ get_acc_G <- function(buffer = 0){
   get_calc_G()
   get_taux_acc_g()
   get_read_acc_G()
-  View(table_recap_final_G)
     
   return(plot_zone)
 }
@@ -582,7 +603,6 @@ get_acc_G_sylvo_eco <- function(sylvoecoregion){
   get_data_dendro()
   get_calc_G()
   get_read_acc_G()
-  View(table_recap_final_G)
   
   return(plot_zone)
   
@@ -596,7 +616,6 @@ get_acc_G_reg_foret <- function(reg_foret){
   get_data_dendro()
   get_calc_G()
   get_read_acc_G()
-  View(table_recap_final_G)
   
   return(plot_zone)
   
