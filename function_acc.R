@@ -253,7 +253,7 @@ get_calc_G <- function(){
     # Calculer l'accroissement annuel en G
     mutate(
       acc_g_ha = if_else(
-        circonference_max != circonference_min & annee_max != annee_min,
+        circonference_max != circonference_min,
         ((g_max - g_min) * w / (annee_max - annee_min)),
         NA_real_  # Sinon NA
       ))
@@ -273,6 +273,22 @@ get_calc_V <- function(){
         NA_real_  # Sinon NA
       ))
   
+}
+
+# Fonction calcul accroissement en D/cm/an----
+get_calc_D <- function(){
+  arbre_zone_etude_cor <<- arbre_zone_etude_cor %>%
+    group_by(num_unique) %>%
+    # Calculer l'accroissement annuel en V
+    mutate(
+      HTOT = as.numeric(HTOT),
+      acc_D_cm = if_else(
+        circonference_max != circonference_min,
+        
+        (((circonference_max / pi) - (circonference_min / pi)) / (annee_max - annee_min)) * 100,
+        
+        NA_real_  # Sinon NA
+      ))
 }
 
 # Fonction de lecture (affichage tableau) des valeurs d'accroissements ----
@@ -375,6 +391,58 @@ get_read_acc_V <- function(){
   return(table_recap_final_V)
   
 }
+get_read_acc_D <- function(){
+  
+  # Calculer les moyennes d'accroissement par essence, catégorie de diamètre et placette
+  table_recap_placette <- arbre_zone_etude_cor %>%
+    filter(is.finite(acc_D_cm)) %>%  # Exclure les valeurs infinies et petites
+    group_by(IDP, Essence, cat_diam) %>%  # Groupement par Placette, Essence et catégorie de diamètre
+    summarise(
+      moyenne_accroissement = mean(acc_D_cm, na.rm = TRUE),  # Moyenne d'accroissement pour chaque placette
+      .groups = 'drop'
+    )
+  
+  # Calculer la moyenne sur toutes les placettes par essence et catégorie de diamètre
+  table_recap_global <- table_recap_placette %>%
+    group_by(Essence, cat_diam) %>%  # Groupement par Essence et catégorie de diamètre seulement
+    summarise(
+      moyenne_accroissement_placettes = mean(moyenne_accroissement, na.rm = TRUE),  # Moyenne globale sur toutes les placettes
+      .groups = 'drop'
+    ) %>%
+    mutate(moyenne_accroissement_placettes = round(moyenne_accroissement_placettes, 3)) %>%  # Arrondir à 0.001 près
+    pivot_wider(
+      names_from = cat_diam,  # Colonnes pour chaque catégorie de diamètre
+      values_from = moyenne_accroissement_placettes,
+      values_fill = list(moyenne_accroissement_placettes = NA)  # Remplir les valeurs manquantes avec NA
+    ) %>%
+    arrange(Essence)  # Trier par essence
+  
+  # Calculer la moyenne globale par essence sans distinction de catégorie de diamètre
+  table_recap_global_sans_diam <- arbre_zone_etude_cor %>%
+    filter(is.finite(acc_D_cm)) %>%
+    group_by(IDP, Essence) %>%  # Groupement par Placette et Essence uniquement
+    summarise(
+      moyenne_accroissement_sans_diam = mean(acc_D_cm, na.rm = TRUE),  # Moyenne d'accroissement par placette sans cat_diam
+      .groups = 'drop'
+    ) %>%
+    group_by(Essence) %>%  # Groupement par essence pour faire la moyenne globale de toutes les placettes
+    summarise(
+      moy_acc_D_cm_an = mean(moyenne_accroissement_sans_diam, na.rm = TRUE),  # Moyenne globale sur toutes les placettes
+      .groups = 'drop'
+    ) %>%
+    mutate(moy_acc_D_cm_an = round(moy_acc_D_cm_an, 3))  # Arrondir à 0.001 près
+  
+  # Fusionner les résultats avec ou sans catégorie de diamètre
+  table_recap_final_D <<- table_recap_global %>%
+    left_join(table_recap_global_sans_diam, by = "Essence")  # Ajouter la moyenne sans catégorie de diamètre
+  
+  View(table_recap_final_D)
+  
+  return(table_recap_final_D)
+  
+}
+
+
 
 # Fonction intégral calcul de l'accroissement en volume sur les placettes----
 get_acc_V <- function(buffer = 0){
@@ -405,6 +473,22 @@ get_acc_G <- function(buffer = 0){
     
   return(plot_zone)
 }
+
+# Fonction intégral calcul de l'accroissement en D/cm/an
+get_acc_D <- function(buffer = 0){
+  get_import_zone()
+  get_buffer_zone(buffer)
+  get_read_map()
+  get_arrange_data()
+  get_species()
+  get_data_dendro()
+  get_calc_D()
+  get_read_acc_D()
+  View(table_recap_final_D)
+  
+  return(plot_zone)
+}
+
 
 
 # Obtenir les placettes et arbre mesurer d'une sylvoecoregion ----
