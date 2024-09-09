@@ -51,6 +51,7 @@ library(leaflet)
 get_dataset_names()  # Permet d'obtenir les noms des fichiers fournis par IFN
 arbre <- get_ifn("arbre")
 placette <- get_ifn("placette")
+habitat <- get_ifn("habitat")
 #ecologie <- get_ifn("ecologie")
 metadata <-get_ifn_metadata()  # Chargement des metadonnee
 
@@ -69,6 +70,9 @@ code_veget <- units_value_set %>%
   filter(units %in% c("TOPO", "OBSTOPO", "HUMUS", "OLT", "TSOL", "TEXT1", "TEXT2", "ROCHED0"))
 
 
+get_pplmt() 
+  
+  
 # Activation des fonctions----
 
 get_acc_G()
@@ -79,8 +83,9 @@ get_acc_D()
 
 mel <- arbre_zone_etude_cor[arbre_zone_etude_cor$Essence=="Mélèze d'Europe",]
 
-get_acc_G_reg_foret("PAYS-HAUT")
+get_acc_G_reg_foret("PLAINE CORSE ORIENTALE")
 
+get_acc_G_sylvo_eco("Ardenne primaire")
 
 get_calc_taux_acc_G()
 
