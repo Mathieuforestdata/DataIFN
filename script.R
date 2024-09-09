@@ -77,5 +77,11 @@ get_acc_V()
 
 get_acc_D()
 
+mel <- arbre_zone_etude_cor[arbre_zone_etude_cor$Essence=="Mélèze d'Europe",]
+
+get_acc_G_reg_foret("PAYS-HAUT")
+
+
+get_calc_taux_acc_G()
 
 
