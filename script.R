@@ -112,11 +112,20 @@ tarif_rapide <- read.csv("./tarif_shaeffer_lent.csv",
                          sep = ';')
 
 # Assurez-vous que les colonnes 'Diametre' et les volumes dans chaque feuille sont numériques
-tarif_lent$Diametre <- as.numeric(tarif_lent$Diametre)
-tarif_rapide$Diametre <- as.numeric(tarif_rapide$Diametre)
+tarif_lent <- read.csv("./tarif_shaeffer_lent.csv", header = TRUE, sep = ';')
+tarif_lent[] <- lapply(tarif_lent, function(x) gsub(",", ".", x))
 
-tarif_lent[ , 2:ncol(tarif_lent)] <- lapply(tarif_lent[ , 2:ncol(tarif_lent)], as.numeric)
-tarif_rapide[ , 2:ncol(tarif_rapide)] <- lapply(tarif_rapide[ , 2:ncol(tarif_rapide)], as.numeric)
+tarif_rapide <- read.csv("./tarif_shaeffer_rapide.csv", header = TRUE, sep = ';')
+tarif_rapide[] <- lapply(tarif_rapide, function(x) gsub(",", ".", x))
+
+# Convert columns to numeric
+tarif_lent$Diametre <- as.numeric(tarif_lent$Diametre)
+tarif_lent[, 2:ncol(tarif_lent)] <- lapply(tarif_lent[, 2:ncol(tarif_lent)], as.numeric)
+
+tarif_rapide$Diametre <- as.numeric(tarif_rapide$Diametre)
+tarif_rapide[, 2:ncol(tarif_rapide)] <- lapply(tarif_rapide[, 2:ncol(tarif_rapide)], as.numeric)
+
+
 
 # Fonction pour calculer l'erreur quadratique moyenne (MSE)
 calculate_mse <- function(vol_predicted, vol_actual) {
