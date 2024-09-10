@@ -53,7 +53,7 @@ get_import_zone <- function(){
 
 
 # Fonction obtention des peuplements sur les placettes----
-#get_pplmt <- function(buffer = 0){
+get_pplmt <- function(buffer = 0){
   get_import_zone()
   get_buffer_zone(buffer)
   
@@ -394,12 +394,16 @@ get_read_acc_G <- function(){
     group_by(IDP, Essence) %>%  # Groupement par Placette et Essence uniquement
     summarise(
       moyenne_accroissement_sans_diam = sum(acc_g_ha, na.rm = TRUE),  # Moyenne d'accroissement par placette sans cat_diam
+      nombre_arbres_mesures = sum(!is.na(acc_g_ha) & acc_g_ha != 0 & is.finite(acc_g_ha)),
       .groups = 'drop'
     ) %>%
     group_by(Essence) %>%  # Groupement par essence pour faire la moyenne globale de toutes les placettes
     summarise(
       moy_acc_g_m2_ha = mean(moyenne_accroissement_sans_diam, na.rm = TRUE),  # Moyenne globale sur toutes les placettes
       moy_taux_acc_G = mean(capital_placette$taux_acc_G[capital_placette$Essence == Essence], na.rm = TRUE),
+      
+      total_arbres_mesures = sum(nombre_arbres_mesures, na.rm = TRUE),
+      
       .groups = 'drop'
     ) %>%
     mutate(moy_acc_g_m2_ha = round(moy_acc_g_m2_ha, 3),
