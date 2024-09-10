@@ -345,6 +345,7 @@ get_calc_V <- function(){
   
 }
 
+
 # Fonction calcul accroissement en D/cm/an----
 get_calc_D <- function(){
   arbre_zone_etude_cor <<- arbre_zone_etude_cor %>%
@@ -652,5 +653,163 @@ get_acc_V_reg_foret <- function(reg_foret){
   return(plot_zone)
   
 }
+
+# Fonction pour afficher les essences disponibles et sélectionner une essence
+selectionner_essence <- function(data) {
+  essences_disponibles <- unique(data$Essence)
+  print("Essences disponibles :")
+  print(essences_disponibles)
+  
+  essence_selectionnee <- readline(prompt = "Veuillez sélectionner une essence : ")
+  
+  # Filtrer les données pour l'essence sélectionnée
+  data <- subset(data, Essence == essence_selectionnee)
+  
+  if (nrow(data) == 0) {
+    stop("Aucune donnée disponible pour l'essence sélectionnée.")
+  }
+  
+  return(data)
+}
+
+# Fonction pour nettoyer les données (enlever NA, convertir en numérique)
+nettoyer_donnees <- function(data) {
+  data <- data[!is.na(data$diam) & !is.na(data$V), ]
+  
+  # Convertir les colonnes en numériques
+  data$diam <- as.numeric(data$diam)
+  data$V <- as.numeric(data$V)
+  
+  return(data)
+}
+
+# Fonction pour ajuster le modèle polynomial
+ajuster_modele_polynomial <- function(data) {
+  modele_poly <- lm(V ~ poly(diam, 2), data = data)
+  return(modele_poly)
+}
+
+# Fonction pour lire les fichiers de tarifs
+lire_tarifs <- function(filepath) {
+  tarif <- read.csv(filepath, header = TRUE, sep = ';')
+  tarif[] <- lapply(tarif, function(x) gsub(",", ".", x))  # Remplacer les virgules par des points
+  tarif$Diametre <- as.numeric(tarif$Diametre)  # Convertir les colonnes en numériques
+  tarif[, 2:ncol(tarif)] <- lapply(tarif[, 2:ncol(tarif)], as.numeric)
+  return(tarif)
+}
+
+# Fonction pour calculer l'erreur quadratique moyenne (MSE)
+calculate_mse <- function(vol_predicted, vol_actual) {
+  if (any(is.na(vol_predicted)) || any(is.na(vol_actual))) {
+    return(NA)  # Retourner NA si des valeurs manquent
+  }
+  return(mean((vol_predicted - vol_actual)^2))
+}
+
+# Fonction pour comparer le modèle polynomial avec un tarif donné
+compare_with_tarif <- function(tarif_data, tarif_type, data) {
+  diameters <- tarif_data$Diametre
+  mse_values <- c()
+  
+  for (i in 2:ncol(tarif_data)) {  # Les colonnes 2 à n sont les volumes
+    volumes_tarif <- tarif_data[[i]]
+    
+    # Interpolation pour correspondre aux diamètres de l'étude
+    volumes_interp <- approx(diameters, volumes_tarif, data$diam, rule = 2)$y
+    
+    # Vérifier si les volumes interpolés contiennent des NA
+    if (all(is.na(volumes_interp))) {
+      next  # Si tous les volumes interpolés sont NA, ignorer cette courbe
+    }
+    
+    # Calcul de la MSE entre le modèle polynomial et le tarif
+    mse <- calculate_mse(data$V, volumes_interp)
+    mse_values <- c(mse_values, mse)
+  }
+  
+  # Retourner la MSE la plus faible, l'index du tarif correspondant, et le type de tarif
+  if (length(mse_values) == 0 || all(is.na(mse_values))) {
+    return(list(min_mse = Inf, best_tarif = NA, type = tarif_type))
+  }
+  
+  min_mse <- min(mse_values, na.rm = TRUE)
+  best_tarif <- which.min(mse_values) + 1  # +1 à cause de la colonne 'Diametre'
+  return(list(min_mse = min_mse, best_tarif = best_tarif, type = tarif_type))
+}
+
+# Fonction pour comparer les tarifs lents et rapides
+comparer_tarifs <- function(data, tarif_lent, tarif_rapide) {
+  best_tarif_lent <- compare_with_tarif(tarif_lent, "lent", data)
+  best_tarif_rapide <- compare_with_tarif(tarif_rapide, "rapide", data)
+  
+  # Comparer les MSE pour déterminer le meilleur tarif
+  best_tarif <- best_tarif_lent
+  if (!is.na(best_tarif_rapide$min_mse) && best_tarif_rapide$min_mse < best_tarif$min_mse) {
+    best_tarif <- best_tarif_rapide
+  }
+  
+  return(best_tarif)
+}
+
+# Fonction pour visualiser les résultats
+visualiser_resultats <- function(data, modele_poly, best_tarif, tarif_lent, tarif_rapide) {
+  # Plot des données
+  plot(data$diam, data$V, 
+       xlab = "Diamètre (cm)", 
+       ylab = "Volume (m³)", 
+       main = "Volume en fonction du diamètre", 
+       pch = 16, col = "blue")
+  
+  # Ajout de la courbe polynomiale
+  lines(sort(data$diam), 
+        predict(modele_poly, newdata = data.frame(diam = sort(data$diam))), 
+        col = "green", lwd = 2)
+  
+  # Ajouter la courbe du tarif Shaeffer choisi
+  tarif_data <- if (best_tarif$type == "lent") tarif_lent else tarif_rapide
+  volumes_tarif <- tarif_data[[best_tarif$best_tarif]]
+  volumes_interp <- approx(tarif_data$Diametre, volumes_tarif, data$diam, rule = 2)$y
+  
+  lines(sort(data$diam), 
+        volumes_interp[order(data$diam)], 
+        col = "red", lwd = 2, lty = 2)
+  
+  print(paste("Le meilleur tarif est :", best_tarif$best_tarif, 
+              "de type", best_tarif$type, 
+              "avec une MSE de", best_tarif$min_mse))
+}
+
+# Fonction principale pour exécuter le process de détermination de tarif Schaeffer
+get_tarif_schaeffer <- function(buffer = 0) {
+  get_import_zone()
+  get_buffer_zone(buffer)
+  get_read_map()
+  get_arrange_data()
+  get_species()
+  get_data_dendro()
+  
+  # Sélectionner l'essence
+  arbre_zone_etude_cor <- selectionner_essence(arbre_zone_etude_cor)
+  
+  # Nettoyer les données
+  arbre_zone_etude_cor <- nettoyer_donnees(arbre_zone_etude_cor)
+  
+  # Ajuster le modèle polynomial
+  modele_poly <- ajuster_modele_polynomial(arbre_zone_etude_cor)
+  
+  # Lire les tarifs
+  tarif_lent <- lire_tarifs("./tarif_shaeffer_lent.csv")
+  tarif_rapide <- lire_tarifs("./tarif_shaeffer_rapide.csv")
+  
+  # Comparer les tarifs et obtenir le meilleur
+  best_tarif <- comparer_tarifs(arbre_zone_etude_cor, tarif_lent, tarif_rapide)
+  
+  # Visualiser les résultats
+  visualiser_resultats(arbre_zone_etude_cor, modele_poly, best_tarif, tarif_lent, tarif_rapide)
+}
+
+
+
+
 
 
