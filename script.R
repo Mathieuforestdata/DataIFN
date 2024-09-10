@@ -91,3 +91,5 @@ get_calc_taux_acc_G()
 
 get_tarif_schaeffer()
 
+get_accroissements_V()
+
