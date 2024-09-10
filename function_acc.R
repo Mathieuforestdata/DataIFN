@@ -86,8 +86,8 @@ get_buffer_zone <- function(buffer = 0){
   
   # Obtenir les limites combinées de toutes les couches pour ajuster le zoom
   all_bounds <<- st_bbox(st_union(st_geometry(shp_etude),
-                                 st_geometry(zone_tampon),
-                                 st_geometry(placette_tampon)))
+                                  st_geometry(zone_tampon),
+                                  st_geometry(placette_tampon)))
   
   # Extraire les IDP des placettes dans la zone tampon
   idp_placette_tampon <<- placette_tampon$IDP
@@ -141,7 +141,7 @@ get_read_map <- function(){
               main.title.size = 1,
               frame = TRUE)  # Ajouter un titre, sans cadre
   return(plot_zone)
-
+  
 }
 
 
@@ -152,14 +152,28 @@ get_taux_acc_g <- function(){
   capital_placette <<- arbre_zone_etude_cor %>%
     group_by(Essence, IDP) %>%
     summarise(
-      capital_essence = sum((g_max * w), na.rm = TRUE),  # Somme de g_max par essence et placette
+      capital_essence = sum(g_max_ha, na.rm = TRUE),
       acc_essence = sum(
-        if_else(circonference_max != circonference_min, acc_g_ha, NA_real_), 
+        if_else(!is.na(acc_g_ha), acc_g_ha, NA_real_), 
         na.rm = TRUE  # Ignorer les NA générés lorsque les circonférences sont égales
       ),
-      taux_acc_G = acc_essence * 100 / capital_essence,# Somme de acc_g_ha par essence et placette si circonférence_max != circonférence_min
+      taux_acc_G = if_else(capital_essence != 0, acc_essence * 100 / capital_essence, NA_real_), # Éviter division par zéro
       .groups = 'drop'  # Retirer les groupes après le résumé
+    ) %>%
+    # Nettoyer les valeurs infinies et quasi infinies
+    mutate(
+      capital_essence = if_else(is.finite(capital_essence), capital_essence, NA_real_),
+      acc_essence = if_else(is.finite(acc_essence), acc_essence, NA_real_),
+      taux_acc_G = if_else(is.finite(taux_acc_G), taux_acc_G, NA_real_)
+    ) %>%
+    
+    # Filtrer les lignes avec des valeurs proches de zéro
+    filter(
+      #abs(capital_essence) > 1e-7,  # Retirer les lignes où capital_essence est presque zéro
+      abs(acc_essence) > 1e-7,      # Retirer les lignes où acc_essence est presque zéro
+      #abs(taux_acc_G) > 1e-7        # Retirer les lignes où taux_acc_G est presque zéro
     )
+  
   View(capital_placette)
   
   return(capital_placette)
@@ -168,7 +182,7 @@ get_taux_acc_g <- function(){
 get_taux_acc_V <- function(){
   capital_placette <<- arbre_zone_etude_cor %>%
     as.numeric(V)
-    group_by(Essence, IDP) %>%
+  group_by(Essence, IDP) %>%
     summarise(
       volume_essence = sum((V * w), na.rm = TRUE),  # Somme de V par essence et placette
       acc_essence = sum(
@@ -183,7 +197,7 @@ get_taux_acc_V <- function(){
   return(capital_placette)
 }
 
-  
+
 
 
 
@@ -221,6 +235,7 @@ get_species <- function(){
   # Ajout de la colonne Essence
   arbre_zone_etude$Essence <- NA
   
+  
   # Boucle de remplissage des libellés pour chaque code Essence
   for (i in 1:nrow(arbre_zone_etude_cor)) {
     # Récupérer le code ESPAR pour l'arbre à la ligne `i`
@@ -248,7 +263,28 @@ get_species <- function(){
   }
   arbre_zone_etude_cor <<- arbre_zone_etude_cor
   return(arbre_zone_etude_cor)
+}  # A corriger la boucle for
+
+
+# Fonction de récupération de l'état des arbres
+get_veget <- function(){
+  
+  arbre_zone_etude_cor <<- arbre_zone_etude_cor %>%
+    mutate(VEGET_cor = case_when(
+      !is.na(VEGET5) ~ VEGET5,      # Si VEGET5 n'est pas NA, prendre VEGET5
+      !is.na(VEGET) ~ VEGET,        # Si VEGET5 est NA mais VEGET n'est pas NA, prendre VEGET
+      is.na(VEGET) & is.na(VEGET5) ~ "indetermine"  # Si les deux sont NA, inscrire "indetermine"
+    ))
+  # Ensuite, faisons une jointure avec la table code_veget pour obtenir les libellés
+  arbre_zone_etude_cor <<- arbre_zone_etude_cor %>%
+    left_join(code_veget, by = c("VEGET_cor" = "code")) %>%  # Assurez-vous que 'code' est la colonne correspondante dans code_veget
+    mutate(veget_etat = libelle) %>%
+    select(-definition, -libelle, -units)
+  
+  return(arbre_zone_etude_cor)
+  
 }
+
 
 
 # Fonction option des principales variables dendrométrique des placettes----
@@ -256,7 +292,7 @@ get_data_dendro <- function(){
   
   # On sélectionne uniquement quelques colonnes utile
   arbre_zone_etude_cor <- arbre_zone_etude_cor %>%
-    select(IDP,CAMPAGNE, num_unique, Essence, C13,C0, VEGET, HTOT, HDEC, V, W, IR5, IR1, annee_mesure, circ_mesure) %>%
+    select(IDP,CAMPAGNE, num_unique, Essence, C13,C0, VEGET, VEGET5, HTOT, HDEC, V, W, IR5, IR1, annee_mesure, circ_mesure) %>%
     
     pivot_wider(names_from = CAMPAGNE,   # Créer des colonnes pour chaque année
                 values_from = C13) %>%  # Les valeurs à placer dans ces colonnes sont les circonférences mesurées
@@ -307,6 +343,7 @@ get_data_dendro <- function(){
       # Calcul accroissement en G/ha/an
       g_min = ((circonference_min^2) / (4 * pi)),
       g_max = ((circonference_max^2) / (4 * pi)),
+      g_max_ha = g_max * w
     )
   return(arbre_zone_etude_cor)
   
@@ -322,7 +359,7 @@ get_calc_G <- function(){
     # Calculer l'accroissement annuel en G
     mutate(
       acc_g_ha = if_else(
-        circonference_max != circonference_min,
+        circonference_max != circonference_min & veget_etat=="Arbre vivant sur pied",
         ((g_max - g_min) * w / (annee_max - annee_min)),
         NA_real_  # Sinon NA
       ))
@@ -344,7 +381,6 @@ get_calc_V <- function(){
       ))
   
 }
-
 
 # Fonction calcul accroissement en D/cm/an----
 get_calc_D <- function(){
@@ -419,6 +455,32 @@ get_read_acc_G <- function(){
   return()
   
 }
+
+# Fonction de récupération des statistiques des valeurs calculé----
+get_stat_essence <- function(){
+  
+  statistiques_essence <- capital_placette %>%
+    # Filtrer pour les lignes où capital_essence est défini (pour éviter les valeurs infinies ou NA)
+    filter(!is.na(capital_essence) & capital_essence != 0 & is.finite(capital_essence)) %>%
+    group_by(Essence) %>%
+    summarise(
+      moy_cap_by_placette = mean(capital_essence, na.rm = TRUE),
+      ecart_type_cap_by_placette = sd(capital_essence, na.rm = TRUE),
+      nbr_arbre_by_placette = n(),
+      .groups = 'drop'
+    )
+  statistiques_essence <<- statistiques_essence %>%
+    mutate(
+      erreur_type = ecart_type_cap_by_placette / sqrt(nbr_arbre_by_placette),
+      IC_inf = moy_cap_by_placette - qt(0.975, df = nbr_arbre_by_placette - 1) * erreur_type,
+      IC_sup = moy_cap_by_placette + qt(0.975, df = nbr_arbre_by_placette - 1) * erreur_type
+    )
+  return(statistiques_essence)
+  
+}
+
+
+
 get_read_acc_V <- function(){
   
   # Calculer les moyennes d'accroissement par essence, catégorie de diamètre et placette
@@ -534,7 +596,7 @@ get_acc_V <- function(buffer = 0){
   get_species()
   get_data_dendro()
   get_calc_V()
-  get_taux_acc_V()
+  #get_taux_acc_V()
   get_read_acc_V()
   View(table_recap_final_V)
   
@@ -549,10 +611,12 @@ get_acc_G <- function(buffer = 0){
   get_arrange_data()
   get_species()
   get_data_dendro()
+  get_veget()
   get_calc_G()
   get_taux_acc_g()
   get_read_acc_G()
-    
+  get_stat_essence()
+  
   return(plot_zone)
 }
 
@@ -606,7 +670,9 @@ get_acc_G_sylvo_eco <- function(sylvoecoregion){
   get_arrange_data()
   get_species()
   get_data_dendro()
+  get_veget()
   get_calc_G()
+  get_taux_acc_g()
   get_read_acc_G()
   
   return(plot_zone)
@@ -809,7 +875,116 @@ get_tarif_schaeffer <- function(buffer = 0) {
 }
 
 
+get_calc_V <- function() {
+  
+  # Sélectionner le volume pour le diamètre 45 cm dans chaque tarif
+  M_lent_45 <- tarif_lent[tarif_lent$Diametre == 45, ]
+  M_rapide_45 <- tarif_rapide[tarif_rapide$Diametre == 45, ]
+  
+  # Vérifier si circonférence_max et circonférence_min sont différents et si année_max et année_min sont différents
+  if (!is.na(circonference_max) && !is.na(circonference_min) && circonference_max != circonference_min && annee_max != annee_min) {
+    
+    # Appliquer le meilleur tarif Shaeffer déterminé par la variable best_tarif
+    if (best_tarif$type == "lent") {
+      # Extraire le volume pour le tarif lent correspondant
+      M <- M_lent_45[[best_tarif$best_tarif]]
+      
+      # Formule Shaeffer lent pour calculer l'accroissement
+      V_lent_max <- (M / 1400) * ((circonference_max/pi() - 5) * (circonference_max/pi() - 10))
+      V_lent_min <- (M / 1400) * ((circonference_min/pi() - 5) * (circonference_min/pi() - 10))
+      
+      # Retourner la différence d'accroissement
+      accroissement <- V_lent_max - V_lent_min
+      
+    } else {
+      # Extraire le volume pour le tarif rapide correspondant
+      M <- M_rapide_45[[best_tarif$best_tarif]]
+      
+      # Formule Shaeffer rapide pour calculer l'accroissement
+      V_rapide_max <- (M / 1800) * circonference_max * (circonference_max - 5)
+      V_rapide_min <- (M / 1800) * circonference_min * (circonference_min - 5)
+      
+      # Retourner la différence d'accroissement
+      accroissement <- V_rapide_max - V_rapide_min
+    }
+    
+    # Ajouter la colonne de résultats dans le tableau de données
+    arbre_zone_etude_cor$Accroissement <- accroissement
+    
+  } else {
+    # Si les conditions ne sont pas respectées, retourner NA
+    arbre_zone_etude_cor$Accroissement <- NA_real_
+    print("Les circonférences ou les années sont identiques ou manquantes.")
+  }
+  
+  # Afficher les résultats
+  print("Tableau des résultats après calcul de l'accroissement :")
+  print(arbre_zone_etude_cor)
+  
+  # Optionnel : Afficher le tableau dans une fenêtre de visualisation si nécessaire
+  View(arbre_zone_etude_cor)
+  
+  return(arbre_zone_etude_cor)
+}
 
 
+
+get_accroissements_V <- function(buffer = 0) {
+  get_import_zone()
+  get_buffer_zone(buffer)
+  get_read_map()
+  get_arrange_data()
+  get_species()
+  get_data_dendro()
+  arbre_zone_etude_cor <- selectionner_essence(arbre_zone_etude_cor)
+  arbre_zone_etude_cor <- nettoyer_donnees(arbre_zone_etude_cor)
+  modele_poly <- ajuster_modele_polynomial(arbre_zone_etude_cor)
+  tarif_lent <- lire_tarifs("./tarif_shaeffer_lent.csv")
+  tarif_rapide <- lire_tarifs("./tarif_shaeffer_rapide.csv")
+  best_tarif <- comparer_tarifs(arbre_zone_etude_cor, tarif_lent, tarif_rapide)
+  M_lent_45 <- tarif_lent[tarif_lent$Diametre == 45, ]
+  M_rapide_45 <- tarif_rapide[tarif_rapide$Diametre == 45, ]
+  arbre_zone_etude_cor$diam_max <- arbre_zone_etude_cor$circonference_max / pi
+  arbre_zone_etude_cor$diam_min <- arbre_zone_etude_cor$circonference_min / pi
+  arbre_zone_etude_cor$accroissement_volumique <- NA
+  for (i in 1:nrow(arbre_zone_etude_cor)) {
+    ligne <- arbre_zone_etude_cor[i, ]
+    
+    # Vérifier la différence entre annee_max et annee_min
+    if (ligne$annee_max != ligne$annee_min) {
+      # Calculer la différence d'années
+      difference_annees <- ligne$annee_max - ligne$annee_min
+      
+      if (best_tarif$type == "lent") {
+        # Récupérer la valeur de M pour le tarif lent
+        M <- M_lent_45[[best_tarif$best_tarif]]
+        
+        # Calcul de l'accroissement volumique avec le tarif lent
+        V_lent_max <- (M / 1400) * ((ligne$diam_max * 100 - 5) * (ligne$diam_max * 100 - 10))
+        V_lent_min <- (M / 1400) * ((ligne$diam_min * 100 - 5) * (ligne$diam_min * 100 - 10))
+        
+        # Calcul de l'accroissement volumique total
+        accroissement_total <- V_lent_max - V_lent_min
+      } else {
+        # Récupérer la valeur de M pour le tarif rapide
+        M <- M_rapide_45[[best_tarif$best_tarif]]
+        
+        # Calcul de l'accroissement volumique avec le tarif rapide
+        V_rapide_max <- (M / 1800) * ligne$diam_max * 100 * (ligne$diam_max * 100 - 5)
+        V_rapide_min <- (M / 1800) * ligne$diam_min * 100 * (ligne$diam_min * 100 - 5)
+        
+        # Calcul de l'accroissement volumique total
+        accroissement_total <- V_rapide_max - V_rapide_min
+      }
+      
+      # Calcul de l'accroissement volumique annuel
+      arbre_zone_etude_cor$accroissement_volumique[i] <- accroissement_total / difference_annees
+    } else {
+      # Si annee_max == annee_min, pas d'accroissement
+      arbre_zone_etude_cor$accroissement_volumique[i] <- NA
+    }
+  }
+  View(arbre_zone_etude_cor)
+}
 
 
