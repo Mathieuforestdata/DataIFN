@@ -927,53 +927,55 @@ get_calc_V <- function() {
   return(arbre_zone_etude_cor)
 }
 
-calculate_acc <- function() {
+
+# Nouvelle fonction : Calcul des accroissements volumétriques
+calculer_accroissements_volumetriques <- function(arbre_zone_etude_cor, best_tarif, tarif_lent, tarif_rapide) {
+  # Extraire les valeurs de M pour un diamètre de 45
   M_lent_45 <- tarif_lent[tarif_lent$Diametre == 45, ]
   M_rapide_45 <- tarif_rapide[tarif_rapide$Diametre == 45, ]
+  
+  # Calculer le diamètre maximum et minimum
   arbre_zone_etude_cor$diam_max <- arbre_zone_etude_cor$circonference_max / pi
   arbre_zone_etude_cor$diam_min <- arbre_zone_etude_cor$circonference_min / pi
   arbre_zone_etude_cor$accroissement_volumique <- NA
+  
+  # Boucle sur chaque arbre pour calculer l'accroissement volumétrique
   for (i in 1:nrow(arbre_zone_etude_cor)) {
     ligne <- arbre_zone_etude_cor[i, ]
     
-    # Vérifier la différence entre annee_max et annee_min
     if (ligne$annee_max != ligne$annee_min) {
-      # Calculer la différence d'années
       difference_annees <- ligne$annee_max - ligne$annee_min
       
       if (best_tarif$type == "lent") {
-        # Récupérer la valeur de M pour le tarif lent
+        # Calcul avec tarif lent
         M <- M_lent_45[[best_tarif$best_tarif]]
-        
-        # Calcul de l'accroissement volumique avec le tarif lent
         V_lent_max <- (M / 1400) * ((ligne$diam_max * 100 - 5) * (ligne$diam_max * 100 - 10))
         V_lent_min <- (M / 1400) * ((ligne$diam_min * 100 - 5) * (ligne$diam_min * 100 - 10))
-        
-        # Calcul de l'accroissement volumique total
         accroissement_total <- V_lent_max - V_lent_min
       } else {
-        # Récupérer la valeur de M pour le tarif rapide
+        # Calcul avec tarif rapide
         M <- M_rapide_45[[best_tarif$best_tarif]]
-        
-        # Calcul de l'accroissement volumique avec le tarif rapide
         V_rapide_max <- (M / 1800) * ligne$diam_max * 100 * (ligne$diam_max * 100 - 5)
         V_rapide_min <- (M / 1800) * ligne$diam_min * 100 * (ligne$diam_min * 100 - 5)
-        
-        # Calcul de l'accroissement volumique total
         accroissement_total <- V_rapide_max - V_rapide_min
       }
       
       # Calcul de l'accroissement volumique annuel
       arbre_zone_etude_cor$accroissement_volumique[i] <- accroissement_total / difference_annees
     } else {
-      # Si annee_max == annee_min, pas d'accroissement
+      # Pas d'accroissement si annee_max == annee_min
       arbre_zone_etude_cor$accroissement_volumique[i] <- NA
     }
   }
-  View(arbre_zone_etude_cor)
+  
+  # Retourner les données mises à jour
+  return(arbre_zone_etude_cor)
 }
 
+
+# Fonction principale : get_accroissements_V
 get_accroissements_V <- function(buffer = 0) {
+  # Étape 1 : Préparer les données
   get_import_zone()
   get_buffer_zone(buffer)
   get_read_map()
@@ -983,12 +985,17 @@ get_accroissements_V <- function(buffer = 0) {
   arbre_zone_etude_cor <- selectionner_essence(arbre_zone_etude_cor)
   arbre_zone_etude_cor <- nettoyer_donnees(arbre_zone_etude_cor)
   modele_poly <- ajuster_modele_polynomial(arbre_zone_etude_cor)
+  
+  # Lire les tarifs
   tarif_lent <- lire_tarifs("./tarif_shaeffer_lent.csv")
   tarif_rapide <- lire_tarifs("./tarif_shaeffer_rapide.csv")
-  best_tarif <- comparer_tarifs(arbre_zone_etude_cor, tarif_lent, tarif_rapide)
-  calculate_acc()
-}
   
-
-
-
+  # Comparer et sélectionner le meilleur tarif
+  best_tarif <- comparer_tarifs(arbre_zone_etude_cor, tarif_lent, tarif_rapide)
+  
+  # Étape 2 : Calculer les accroissements volumétriques
+  arbre_zone_etude_cor <- calculer_accroissements_volumetriques(arbre_zone_etude_cor, best_tarif, tarif_lent, tarif_rapide)
+  
+  # Afficher le résultat
+  View(arbre_zone_etude_cor)
+}
