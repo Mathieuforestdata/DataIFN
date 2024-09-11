@@ -927,21 +927,7 @@ get_calc_V <- function() {
   return(arbre_zone_etude_cor)
 }
 
-
-
-get_accroissements_V <- function(buffer = 0) {
-  get_import_zone()
-  get_buffer_zone(buffer)
-  get_read_map()
-  get_arrange_data()
-  get_species()
-  get_data_dendro()
-  arbre_zone_etude_cor <- selectionner_essence(arbre_zone_etude_cor)
-  arbre_zone_etude_cor <- nettoyer_donnees(arbre_zone_etude_cor)
-  modele_poly <- ajuster_modele_polynomial(arbre_zone_etude_cor)
-  tarif_lent <- lire_tarifs("./tarif_shaeffer_lent.csv")
-  tarif_rapide <- lire_tarifs("./tarif_shaeffer_rapide.csv")
-  best_tarif <- comparer_tarifs(arbre_zone_etude_cor, tarif_lent, tarif_rapide)
+calculate_acc <- function() {
   M_lent_45 <- tarif_lent[tarif_lent$Diametre == 45, ]
   M_rapide_45 <- tarif_rapide[tarif_rapide$Diametre == 45, ]
   arbre_zone_etude_cor$diam_max <- arbre_zone_etude_cor$circonference_max / pi
@@ -986,5 +972,23 @@ get_accroissements_V <- function(buffer = 0) {
   }
   View(arbre_zone_etude_cor)
 }
+
+get_accroissements_V <- function(buffer = 0) {
+  get_import_zone()
+  get_buffer_zone(buffer)
+  get_read_map()
+  get_arrange_data()
+  get_species()
+  get_data_dendro()
+  arbre_zone_etude_cor <- selectionner_essence(arbre_zone_etude_cor)
+  arbre_zone_etude_cor <- nettoyer_donnees(arbre_zone_etude_cor)
+  modele_poly <- ajuster_modele_polynomial(arbre_zone_etude_cor)
+  tarif_lent <- lire_tarifs("./tarif_shaeffer_lent.csv")
+  tarif_rapide <- lire_tarifs("./tarif_shaeffer_rapide.csv")
+  best_tarif <- comparer_tarifs(arbre_zone_etude_cor, tarif_lent, tarif_rapide)
+  calculate_acc()
+}
+  
+
 
 
