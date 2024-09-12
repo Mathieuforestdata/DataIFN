@@ -1,0 +1,162 @@
+---
+title: "Rapport_projet_DataIFN"
+author: "Mathieu PENET, Jean-eudes DELAGE, Roman GARDES, Benoit PERIER "
+date: "2024-09-11"
+output: html_document
+---
+
+```{r title(Installation des librairies), echo=FALSE, results='hide', message=FALSE, warning=FALSE}
+library(happifn)
+library(happifndata)
+check_happifndata()
+library(data.table)
+library(sf)
+library(ggplot2)
+library(dplyr)
+library(tidyr)
+library(tmap);ttm
+library(kableExtra)
+library(mapview)
+library(mapedit)
+library(leaflet)
+
+```
+
+
+L'Objectif de ce document est de fournir auw gestionnaire un maximum d'information dendrométrique sur leur peuplement forestier.
+
+
+# Introduction
+
+
+### Explication des données  IFN, quels type, quels résolution, quels mesures, etc...
+
+
+
+# Materiel et méthodes
+### Construction de la fonction d'accroissement en surface terrière
+#### Importation de la zone d'étude
+
+Comme évoqué précédemment,l'objectif de ce projet est de pouvoir informer le gestionnaire sur les potentialité de croissance de ces peuplements et de ces arbres.
+A titre d'exemple, un gestionnaire privé, faisant l'acquisition récente d'un massif forestier en gestion, à besoin d'information sur la croissance des peuplements.
+On émet l'hypothèse que le massif étudié ne dispose pas d'inventaire par placette permanente qui permettent de définir avec précision un accroissement localisé des essences.
+
+Ainsi, notre objectif à été de construire un ensemble de fonction R, permettant de fournir des informations précise, avec un indice de fiabilité des données de sortis et des possibilité de filtre concernant les contextes sylvicoles souvent varié à l'échelle d'un territoire.
+
+###### Première étape : Aquisition de la zone d'étude
+Dans notre cas concret explicité dans ce rapport nous prendrons à titre d'exemple (et également parcequ'il s'agit d'une forêt d'exception), le massif de la forêt de Dambach.
+
+Pour cela, les gestionnaire peut soit dessiner la zone sur une carte, soit importer un fichier .shp, souvent un fichier vecteur d'assemblage cadastral.
+
+La fonction "get_import_zone", permet d'afficher une carte interactive, ou le gestionnaire peut dessiner aisément la forme du massif sur un fond OpenStreet Map. Par la suite, la forme est convertis en sf, pour faciliter son utilisation dans les fonction suivante et est conservé dans le système de projection Lambert 93 (EPSG : 2154), au sein de la variable "shp_etude".
+
+```{r}
+get_import_zone <- function(){
+  # Code utilisé pour importer un shape----
+  #shp_path <- file.choose()  # Ouvrir les fichiers locaux du PC
+  #shp_etude <<- st_read(shp_path)  # Importer le shapefile sélectionné ds l'env
+  # Convertir l'objet en sf si nécessaire
+  # "finished" contient la géométrie dessinée
+  #shp_etude <<- st_as_sf(drawn_zone$finished)
+  
+  
+  # Code pour dessiner une features avec mapedit----
+  # Créer une carte leaflet centrée sur la France
+  france_center <- c(2.2137, 46.2276)  # Longitude, Latitude approximative de la France
+  map <- leaflet() %>%
+    addTiles() %>%
+    setView(lng = france_center[1], lat = france_center[2], zoom = 6)
+  
+  # Utiliser cette carte avec drawFeatures pour dessiner la zone d'étude
+  drawn_zone <- drawFeatures(map = map)
+  
+  # Vérifier si quelque chose a été dessiné
+  if (is.null(drawn_zone)) {
+    stop("Aucune zone n'a été dessinée. Veuillez dessiner une zone avant de continuer.")
+  }
+  
+  # Convertir l'objet dessiné en sf si nécessaire
+  shp_etude <- st_as_sf(drawn_zone)
+  
+  # Vérifier si la conversion a bien fonctionné
+  if (is.null(shp_etude)) {
+    stop("Erreur lors de la conversion en objet sf.")
+  }
+  # Assurez-vous que les coordonnées sont correctement transformées
+  # Les données placette IFN étant en lambert 93 (2154)
+  shp_etude <- st_transform(shp_etude, 2154)
+  
+  # Sauvegarder la zone d'étude dans l'environnement
+  shp_etude <<- shp_etude
+  
+  
+  return (shp_etude)  # return les géométrie chargé
+}
+
+get_import_zone()
+
+```
+
+Après avoir dessiner la zone, la fonctio 'get_buffer_zone', permet de lire la géometrie enregistré précédemment pour la croiser avec la géométrie des placettes de l'IFN, qui sont déjà enregistré sous forme sf par le package Happifn (get_ifn("placette")).
+Suivant sa volonté, et dans le cas ou la zone d'étude détiens une petite surface (<100ha), il est recommandé d'insérer dans la fonction une distance de buffer sur la géométrie d'étude.
+L'objectif étant de pouvoir étendre la zone, pour acquérir plus de placette de l'IFN est donc plus de données sur les essences à proximité et leur accroissement.
+
+Cependant, cette fonction buffer peut également devenir une contrainte, et renvoyé après calcul d'accroissement des cortèges d'essence et leur accroissement complètement décorélé du contexte sylvicole dans lequel est confronté le gestionnaire.
+
+Il est donc recommandé de ne pas superposé les données provenant de plusieurs sylvoécoregion et si possbile de plusieurs région forestière, toujours dans le but de conserver une homogénéité des contexte sylvicoles.
+
+Enfin, après avoir récupérer l'ensemble des placettes présent dans la zone, le code récupère l'ensemble des données concernant les arbres mesurés sur ces placettes. Ces derniers étant conservé dans une table : "arbre_zone_etude".
+
+
+```{r}
+# Fonction obtention buffer et placette à l'intérieur ----
+get_buffer_zone <- function(buffer = 0){
+  
+  # Création de la zone tampon autour du shapefile
+  zone_tampon <<- st_buffer(shp_etude, dist = buffer)
+  
+  # Selection des placettes uniquement dans la zone tampon
+  placette_tampon <<- st_intersection(placette, zone_tampon)
+  
+  # Obtenir les limites combinées de toutes les couches pour ajuster le zoom
+  all_bounds <<- st_bbox(st_union(st_geometry(shp_etude),
+                                 st_geometry(zone_tampon),
+                                 st_geometry(placette_tampon)))
+  
+  # Extraire les IDP des placettes dans la zone tampon
+  idp_placette_tampon <<- placette_tampon$IDP
+  
+  # Filtre les arbres ayant le même IDP que les placettes de la zone
+  arbre_zone_etude <<- arbre[arbre$IDP %in% idp_placette_tampon, ]
+  
+  
+  # Convertir l'objet dessiné en sf si nécessaire
+  shp_etude <- st_as_sf(shp_etude)
+  
+  # Vérifier si la conversion a bien fonctionné
+  if (is.null(shp_etude)) {
+    stop("Erreur lors de la conversion en objet sf.")
+  }
+  # Assurez-vous que les coordonnées sont correctement transformées
+  # Les données placette IFN étant en lambert 93 (2154)
+  shp_etude <<- st_transform(shp_etude, 2154)
+  
+  return(list(idp_placette_tampon,arbre_zone_etude))
+  
+}
+
+
+get_buffer_zone()
+```
+
+
+
+
+
+
+
+
+# Modif benoit
+
+
+
