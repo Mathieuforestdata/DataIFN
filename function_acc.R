@@ -19,8 +19,7 @@ get_import_zone <- function(){
   
   # Code pour dessiner une features avec mapedit----
   # Créer une carte leaflet centrée sur la France
-  # Longitude, Latitude approximative de la France
-  france_center <- c(2.2137, 46.2276)  
+  france_center <- c(2.2137, 46.2276)  # Longitude, Latitude approximative de la France
   map <- leaflet() %>%
     addTiles() %>%
     setView(lng = france_center[1], lat = france_center[2], zoom = 6)
@@ -62,7 +61,7 @@ get_pplmt <- function(buffer = 0){
   # Effectuer une jointure gauche entre `arbre_zone_etude` et `habitat_placette` sur la colonne `IDP`
   arbre_zone_etude <<- arbre_zone_etude %>%
     group_by(IDP) %>%  # Groupement par essence pour faire la moyenne globale de toutes les placettes
-    summarise(
+    mutate(
       PPLT = habitat_placette$CD_HAB, na.rm = TRUE,
       .groups = 'drop'
     )
@@ -86,8 +85,8 @@ get_buffer_zone <- function(buffer = 0){
   
   # Obtenir les limites combinées de toutes les couches pour ajuster le zoom
   all_bounds <<- st_bbox(st_union(st_geometry(shp_etude),
-                                  st_geometry(zone_tampon),
-                                  st_geometry(placette_tampon)))
+                                 st_geometry(zone_tampon),
+                                 st_geometry(placette_tampon)))
   
   # Extraire les IDP des placettes dans la zone tampon
   idp_placette_tampon <<- placette_tampon$IDP
@@ -141,25 +140,38 @@ get_read_map <- function(){
               main.title.size = 1,
               frame = TRUE)  # Ajouter un titre, sans cadre
   return(plot_zone)
-  
+
 }
 
 
 
 
-# Fonction de calcul du taux d'accroissement
+# Fonction de calcul du taux d'accroissement pour le volume et la G
 get_taux_acc_g <- function(){
+  # Calculer le nombre d'arbres mesurés pour chaque essence et chaque placette (IDP)
+  nombre_arbres_par_essence_placette <- arbre_zone_etude_cor %>%
+    group_by(Essence, IDP) %>%
+    summarise(
+      nombre_arbres_mesures = sum(!is.na(acc_g_ha) & is.finite(acc_g_ha) & acc_g_ha != 0),  # Compte des arbres mesurés
+      .groups = 'drop'
+    )
+  
+  # Calculer les statistiques de capital et d'accroissement
   capital_placette <<- arbre_zone_etude_cor %>%
+
     group_by(Essence, IDP) %>%
     summarise(
       capital_essence = sum(g_max_ha, na.rm = TRUE),
       acc_essence = sum(
         if_else(!is.na(acc_g_ha), acc_g_ha, NA_real_), 
-        na.rm = TRUE  # Ignorer les NA générés lorsque les circonférences sont égales
-      ),
-      taux_acc_G = if_else(capital_essence != 0, acc_essence * 100 / capital_essence, NA_real_), # Éviter division par zéro
+        na.rm = TRUE ), # Ignorer les NA générés lorsque les circonférences sont égales
+      
+      taux_acc_G = if_else(capital_essence != 0, acc_essence * 100 / capital_essence, NA_real_),# Éviter division par zéro
       .groups = 'drop'  # Retirer les groupes après le résumé
     ) %>%
+    
+    left_join(nombre_arbres_par_essence_placette, by = c("Essence", "IDP")) %>%
+    
     # Nettoyer les valeurs infinies et quasi infinies
     mutate(
       capital_essence = if_else(is.finite(capital_essence), capital_essence, NA_real_),
@@ -178,26 +190,51 @@ get_taux_acc_g <- function(){
   
   return(capital_placette)
 }
-
 get_taux_acc_V <- function(){
-  capital_placette <<- arbre_zone_etude_cor %>%
-    as.numeric(V)
-  group_by(Essence, IDP) %>%
+  # Calculer le nombre d'arbres mesurés pour chaque essence et chaque placette (IDP)
+  nombre_arbres_par_essence_placette <- arbre_zone_etude_cor %>%
+    group_by(Essence, IDP) %>%
     summarise(
-      volume_essence = sum((V * w), na.rm = TRUE),  # Somme de V par essence et placette
-      acc_essence = sum(
-        if_else(circonference_max != circonference_min, acc_V_ha, NA_real_), 
-        na.rm = TRUE  # Ignorer les NA générés lorsque les circonférences sont égales
-      ),
-      taux_acc_V = acc_essence * 100 / volume_essence,# Somme de acc_g_ha par essence et placette si circonférence_max != circonférence_min
-      .groups = 'drop'  # Retirer les groupes après le résumé
+      nombre_arbres_mesures = sum(!is.na(acc_V_ha) & is.finite(acc_V_ha) & acc_V_ha != 0),  # Compte des arbres mesurés
+      .groups = 'drop'
     )
-  View(capital_placette)
   
-  return(capital_placette)
+  # Calculer les statistiques de capital et d'accroissement
+  volume_placette <<- arbre_zone_etude_cor %>%
+    
+    group_by(Essence, IDP) %>%
+    summarise(
+      volume_essence = sum(V_max_ha, na.rm = TRUE),
+      acc_essence = sum(
+        if_else(!is.na(acc_V_ha), acc_V_ha, NA_real_), 
+        na.rm = TRUE ), # Ignorer les NA générés lorsque les circonférences sont égales
+      
+      taux_acc_V = if_else(volume_essence != 0, acc_essence * 100 / volume_essence, NA_real_),# Éviter division par zéro
+      .groups = 'drop'  # Retirer les groupes après le résumé
+    ) %>%
+    
+    left_join(nombre_arbres_par_essence_placette, by = c("Essence", "IDP")) %>%
+    
+    # Nettoyer les valeurs infinies et quasi infinies
+    mutate(
+      volume_essence = if_else(is.finite(volume_essence), volume_essence, NA_real_),
+      acc_essence = if_else(is.finite(acc_essence), acc_essence, NA_real_),
+      taux_acc_V = if_else(is.finite(taux_acc_V), taux_acc_V, NA_real_)
+    ) %>%
+    
+    # Filtrer les lignes avec des valeurs proches de zéro
+    filter(
+      #abs(capital_essence) > 1e-7,  # Retirer les lignes où capital_essence est presque zéro
+      abs(acc_essence) > 1e-7,      # Retirer les lignes où acc_essence est presque zéro
+      #abs(taux_acc_G) > 1e-7        # Retirer les lignes où taux_acc_G est presque zéro
+    )
+  
+  View(volume_placette)
+  
+  return(volume_placette)
 }
 
-
+  
 
 
 
@@ -234,7 +271,7 @@ get_arrange_data <- function(){
 get_species <- function(){
   # Ajout de la colonne Essence
   arbre_zone_etude$Essence <- NA
-  
+
   
   # Boucle de remplissage des libellés pour chaque code Essence
   for (i in 1:nrow(arbre_zone_etude_cor)) {
@@ -257,7 +294,7 @@ get_species <- function(){
         arbre_zone_etude_cor$Essence[i] <- essence_correspondante
       } else {
         # Si aucun code ESPAR correspondant n'est trouvé, laisser la valeur par défaut (NA)
-        arbre_zone_etude_cor$Essence[i] <- "NA"
+        arbre_zone_etude_cor$Essence[i] <- "Indetermine"
       }
     }
   }
@@ -368,18 +405,21 @@ get_calc_G <- function(){
 }
 
 # Fonction calcul accroissement en V/m3/an----
-get_calc_V <- function(){
+get_calc_V_ha <- function() {
   arbre_zone_etude_cor <<- arbre_zone_etude_cor %>%
     group_by(num_unique) %>%
     # Calculer l'accroissement annuel en V
     mutate(
-      HTOT = as.numeric(HTOT),
-      acc_V_ha = if_else(
-        circonference_max != circonference_min & annee_max != annee_min,
-        #(((0.65 * g_max * HTOT) - (0.65 * g_min * HTOT))*w )/ (annee_max - annee_min),
-        NA_real_  # Sinon NA
-      ))
+      # Calculer l'accroissement volumique par hectare
+      acc_V_ha = if_else(!is.na(accroissement_volumique) & !is.na(w), 
+                         accroissement_volumique * w, 
+                         NA_real_)  # Si l'un des deux est NA, retourner NA
+    )
   
+  # Vérifier si acc_V_ha est bien calculé
+  print(head(arbre_zone_etude_cor$acc_V_ha))  # Afficher les premières valeurs calculées
+  
+  return(arbre_zone_etude_cor)
 }
 
 # Fonction calcul accroissement en D/cm/an----
@@ -397,6 +437,9 @@ get_calc_D <- function(){
         NA_real_  # Sinon NA
       ))
 }
+
+
+
 
 # Fonction de lecture (affichage tableau) des valeurs d'accroissements ----
 get_read_acc_G <- function(){
@@ -438,8 +481,10 @@ get_read_acc_G <- function(){
     summarise(
       moy_acc_g_m2_ha = mean(moyenne_accroissement_sans_diam, na.rm = TRUE),  # Moyenne globale sur toutes les placettes
       moy_taux_acc_G = mean(capital_placette$taux_acc_G[capital_placette$Essence == Essence], na.rm = TRUE),
-      
+      ecart_type = sd(capital_placette$taux_acc_G[capital_placette$Essence == Essence], na.rm = TRUE),
       total_arbres_mesures = sum(nombre_arbres_mesures, na.rm = TRUE),
+      IC_inf = moy_taux_acc_G - 1.96 * (ecart_type / sqrt(total_arbres_mesures)),
+      IC_sup = moy_taux_acc_G + 1.96 * (ecart_type / sqrt(total_arbres_mesures)),
       
       .groups = 'drop'
     ) %>%
@@ -455,32 +500,6 @@ get_read_acc_G <- function(){
   return()
   
 }
-
-# Fonction de récupération des statistiques des valeurs calculé----
-get_stat_essence <- function(){
-  
-  statistiques_essence <- capital_placette %>%
-    # Filtrer pour les lignes où capital_essence est défini (pour éviter les valeurs infinies ou NA)
-    filter(!is.na(capital_essence) & capital_essence != 0 & is.finite(capital_essence)) %>%
-    group_by(Essence) %>%
-    summarise(
-      moy_cap_by_placette = mean(capital_essence, na.rm = TRUE),
-      ecart_type_cap_by_placette = sd(capital_essence, na.rm = TRUE),
-      nbr_arbre_by_placette = n(),
-      .groups = 'drop'
-    )
-  statistiques_essence <<- statistiques_essence %>%
-    mutate(
-      erreur_type = ecart_type_cap_by_placette / sqrt(nbr_arbre_by_placette),
-      IC_inf = moy_cap_by_placette - qt(0.975, df = nbr_arbre_by_placette - 1) * erreur_type,
-      IC_sup = moy_cap_by_placette + qt(0.975, df = nbr_arbre_by_placette - 1) * erreur_type
-    )
-  return(statistiques_essence)
-  
-}
-
-
-
 get_read_acc_V <- function(){
   
   # Calculer les moyennes d'accroissement par essence, catégorie de diamètre et placette
@@ -513,12 +532,18 @@ get_read_acc_V <- function(){
     group_by(IDP, Essence) %>%  # Groupement par Placette et Essence uniquement
     summarise(
       moyenne_accroissement_sans_diam = sum(acc_V_ha, na.rm = TRUE),  # Moyenne d'accroissement par placette sans cat_diam
+      nombre_arbres_mesures = sum(!is.na(acc_V_ha) & acc_V_ha != 0 & is.finite(acc_V_ha)),
+      
       .groups = 'drop'
     ) %>%
     group_by(Essence) %>%  # Groupement par essence pour faire la moyenne globale de toutes les placettes
     summarise(
       moy_acc_V_m3_ha = mean(moyenne_accroissement_sans_diam, na.rm = TRUE),  # Moyenne globale sur toutes les placettes
-      moy_taux_acc_V = mean(capital_placette$taux_acc_V[capital_placette$Essence == Essence], na.rm = TRUE),
+      moy_taux_acc_V = mean(volume_placette$taux_acc_V[volume_placette$Essence == Essence], na.rm = TRUE),
+      ecart_type = sd(volume_placette$taux_acc_V[volume_placette$Essence == Essence], na.rm = TRUE),
+      total_arbres_mesures = sum(nombre_arbres_mesures, na.rm = TRUE),
+      IC_inf = moy_taux_acc_V - 1.96 * (ecart_type / sqrt(total_arbres_mesures)),
+      IC_sup = moy_taux_acc_V + 1.96 * (ecart_type / sqrt(total_arbres_mesures)),
       .groups = 'drop'
     ) %>%
     mutate(
@@ -571,6 +596,7 @@ get_read_acc_D <- function(){
     group_by(Essence) %>%  # Groupement par essence pour faire la moyenne globale de toutes les placettes
     summarise(
       moy_acc_D_cm_an = mean(moyenne_accroissement_sans_diam, na.rm = TRUE),  # Moyenne globale sur toutes les placettes
+      #nombre_arbres_mesures = sum(!is.na(acc_g_ha) & acc_g_ha != 0 & is.finite(acc_g_ha)),
       .groups = 'drop'
     ) %>%
     mutate(moy_acc_D_cm_an = round(moy_acc_D_cm_an, 3))  # Arrondir à 0.001 près
@@ -587,21 +613,41 @@ get_read_acc_D <- function(){
 
 
 
-# Fonction intégral calcul de l'accroissement en volume sur les placettes----
-get_acc_V <- function(buffer = 0){
-  get_import_zone()
-  get_buffer_zone(buffer)
-  get_read_map()
-  get_arrange_data()
-  get_species()
-  get_data_dendro()
-  get_calc_V()
-  #get_taux_acc_V()
-  get_read_acc_V()
-  View(table_recap_final_V)
+
+# Fonction de récupération des statistiques des valeurs calculé----
+get_stat_essence <- function(){
   
-  return(plot_zone)
+  merged_data <- capital_placette %>%
+    left_join(table_recap_final_G %>% select(Essence, moy_taux_acc_G), by = "Essence")
+  
+  # Calculer l'écart-type du taux d'accroissement pour chaque essence
+  
+  nombre_placettes_par_essence <- capital_placette %>%
+    group_by(Essence) %>%
+    summarise(
+      nombre_placettes = n_distinct(IDP),  # Nombre unique de placettes (IDP) pour chaque essence
+      .groups = 'drop'
+    )
+  statistique_essence <<- merged_data %>%
+    group_by(Essence) %>%
+    summarise(
+      ecart_type_taux_acc_G = sqrt(mean((taux_acc_G - moy_taux_acc_G)^2, na.rm = TRUE)),
+      nombre_placettes = n_distinct(IDP),  # Nombre unique de placettes (IDP) pour chaque essence
+      .groups = 'drop'
+    )
+  
+  
+  # Afficher les résultats
+  View(statistique_essence)
+  
+  
+  
+  
+  
+  return(statistiques_essence)
+  
 }
+
 
 # Fonction intégral calcul de l'accroissement en G/ha/an sur les placettes
 get_acc_G <- function(buffer = 0){
@@ -616,7 +662,8 @@ get_acc_G <- function(buffer = 0){
   get_taux_acc_g()
   get_read_acc_G()
   get_stat_essence()
-  
+  View(plot)
+    
   return(plot_zone)
 }
 
@@ -628,6 +675,7 @@ get_acc_D <- function(buffer = 0){
   get_arrange_data()
   get_species()
   get_data_dendro()
+  get_veget()
   get_calc_D()
   get_read_acc_D()
   View(table_recap_final_D)
@@ -685,7 +733,9 @@ get_acc_G_reg_foret <- function(reg_foret){
   get_arrange_data()
   get_species()
   get_data_dendro()
+  get_veget()
   get_calc_G()
+  get_taux_acc_g()
   get_read_acc_G()
   
   return(plot_zone)
@@ -710,15 +760,39 @@ get_acc_V_sylvo_eco <- function(sylvoecoregion){
 get_acc_V_reg_foret <- function(reg_foret){
   get_reg_foret(reg_foret)
   get_arrange_data()
+  get_arrange_data()
   get_species()
   get_data_dendro()
-  get_calc_V()
+  get_veget()
+  
+  arbre_zone_etude_cor <<- selectionner_essence(arbre_zone_etude_cor)
+  arbre_zone_etude_cor <<- nettoyer_donnees(arbre_zone_etude_cor)
+  modele_poly <<- ajuster_modele_polynomial(arbre_zone_etude_cor)
+  
+  # Lire les tarifs
+  tarif_lent <<- lire_tarifs("./tarif_shaeffer_lent.csv")
+  tarif_rapide <<- lire_tarifs("./tarif_shaeffer_rapide.csv")
+  
+  # Comparer et sélectionner le meilleur tarif
+  best_tarif <<- comparer_tarifs(arbre_zone_etude_cor, tarif_lent, tarif_rapide)
+  
+  # Étape 2 : Calculer les accroissements volumétriques
+  arbre_zone_etude_cor <<- calculer_accroissements_volumetriques(arbre_zone_etude_cor, best_tarif, tarif_lent, tarif_rapide)
+  
+  get_calc_V_ha()
+  get_taux_acc_V()
   get_read_acc_V()
-  View(table_recap_final_V)
+  
+  # Afficher le résultat
+  View(arbre_zone_etude_cor)
   
   return(plot_zone)
   
 }
+
+
+
+# Fonction de jean eudes delages----
 
 # Fonction pour afficher les essences disponibles et sélectionner une essence
 selectionner_essence <- function(data) {
@@ -875,59 +949,6 @@ get_tarif_schaeffer <- function(buffer = 0) {
 }
 
 
-get_calc_V <- function() {
-  
-  # Sélectionner le volume pour le diamètre 45 cm dans chaque tarif
-  M_lent_45 <- tarif_lent[tarif_lent$Diametre == 45, ]
-  M_rapide_45 <- tarif_rapide[tarif_rapide$Diametre == 45, ]
-  
-  # Vérifier si circonférence_max et circonférence_min sont différents et si année_max et année_min sont différents
-  if (!is.na(circonference_max) && !is.na(circonference_min) && circonference_max != circonference_min && annee_max != annee_min) {
-    
-    # Appliquer le meilleur tarif Shaeffer déterminé par la variable best_tarif
-    if (best_tarif$type == "lent") {
-      # Extraire le volume pour le tarif lent correspondant
-      M <- M_lent_45[[best_tarif$best_tarif]]
-      
-      # Formule Shaeffer lent pour calculer l'accroissement
-      V_lent_max <- (M / 1400) * ((circonference_max/pi() - 5) * (circonference_max/pi() - 10))
-      V_lent_min <- (M / 1400) * ((circonference_min/pi() - 5) * (circonference_min/pi() - 10))
-      
-      # Retourner la différence d'accroissement
-      accroissement <- V_lent_max - V_lent_min
-      
-    } else {
-      # Extraire le volume pour le tarif rapide correspondant
-      M <- M_rapide_45[[best_tarif$best_tarif]]
-      
-      # Formule Shaeffer rapide pour calculer l'accroissement
-      V_rapide_max <- (M / 1800) * circonference_max * (circonference_max - 5)
-      V_rapide_min <- (M / 1800) * circonference_min * (circonference_min - 5)
-      
-      # Retourner la différence d'accroissement
-      accroissement <- V_rapide_max - V_rapide_min
-    }
-    
-    # Ajouter la colonne de résultats dans le tableau de données
-    arbre_zone_etude_cor$Accroissement <- accroissement
-    
-  } else {
-    # Si les conditions ne sont pas respectées, retourner NA
-    arbre_zone_etude_cor$Accroissement <- NA_real_
-    print("Les circonférences ou les années sont identiques ou manquantes.")
-  }
-  
-  # Afficher les résultats
-  print("Tableau des résultats après calcul de l'accroissement :")
-  print(arbre_zone_etude_cor)
-  
-  # Optionnel : Afficher le tableau dans une fenêtre de visualisation si nécessaire
-  View(arbre_zone_etude_cor)
-  
-  return(arbre_zone_etude_cor)
-}
-
-
 # Nouvelle fonction : Calcul des accroissements volumétriques
 calculer_accroissements_volumetriques <- function(arbre_zone_etude_cor, best_tarif, tarif_lent, tarif_rapide) {
   # Extraire les valeurs de M pour un diamètre de 45
@@ -938,26 +959,45 @@ calculer_accroissements_volumetriques <- function(arbre_zone_etude_cor, best_tar
   arbre_zone_etude_cor$diam_max <- arbre_zone_etude_cor$circonference_max / pi
   arbre_zone_etude_cor$diam_min <- arbre_zone_etude_cor$circonference_min / pi
   arbre_zone_etude_cor$accroissement_volumique <- NA
+  arbre_zone_etude_cor$V_max <- NA  # Initialise la colonne V_max avec des NA
+  arbre_zone_etude_cor$V_max_ha <- NA  # Initialise la colonne V_max avec des NA
   
   # Boucle sur chaque arbre pour calculer l'accroissement volumétrique
   for (i in 1:nrow(arbre_zone_etude_cor)) {
     ligne <- arbre_zone_etude_cor[i, ]
     
-    if (ligne$annee_max != ligne$annee_min) {
+    if (!is.na(ligne$veget_etat) && ligne$veget_etat != "Arbre vivant sur pied") {
+      arbre_zone_etude_cor$accroissement_volumique[i] <- NA
+      next
+    }
+    
+    
+    if (ligne$diam_max != ligne$diam_min) {
       difference_annees <- ligne$annee_max - ligne$annee_min
       
       if (best_tarif$type == "lent") {
         # Calcul avec tarif lent
+        
         M <- M_lent_45[[best_tarif$best_tarif]]
         V_lent_max <- (M / 1400) * ((ligne$diam_max * 100 - 5) * (ligne$diam_max * 100 - 10))
         V_lent_min <- (M / 1400) * ((ligne$diam_min * 100 - 5) * (ligne$diam_min * 100 - 10))
         accroissement_total <- V_lent_max - V_lent_min
+        
+        arbre_zone_etude_cor$V_max[i] <- V_lent_max  # Remplace NA par la valeur calculée pour chaque ligne
+        # Calculer V_max_ha (V_max * w) et ajouter la valeur dans la colonne V_max_ha
+        arbre_zone_etude_cor$V_max_ha[i] <- V_lent_max * ligne$w  # Multiplie V_max par w pour chaque ligne
+        
       } else {
         # Calcul avec tarif rapide
         M <- M_rapide_45[[best_tarif$best_tarif]]
         V_rapide_max <- (M / 1800) * ligne$diam_max * 100 * (ligne$diam_max * 100 - 5)
         V_rapide_min <- (M / 1800) * ligne$diam_min * 100 * (ligne$diam_min * 100 - 5)
         accroissement_total <- V_rapide_max - V_rapide_min
+        
+        arbre_zone_etude_cor$V_max[i] <- V_rapide_max  # Remplace NA par la valeur calculée pour chaque ligne
+        arbre_zone_etude_cor$V_max_ha[i] <- V_rapide_max * ligne$w  # Multiplie V_max par w pour chaque ligne
+        
+        
       }
       
       # Calcul de l'accroissement volumique annuel
@@ -982,20 +1022,33 @@ get_accroissements_V <- function(buffer = 0) {
   get_arrange_data()
   get_species()
   get_data_dendro()
-  arbre_zone_etude_cor <- selectionner_essence(arbre_zone_etude_cor)
-  arbre_zone_etude_cor <- nettoyer_donnees(arbre_zone_etude_cor)
-  modele_poly <- ajuster_modele_polynomial(arbre_zone_etude_cor)
+  get_veget()
+  
+  arbre_zone_etude_cor <<- selectionner_essence(arbre_zone_etude_cor)
+  arbre_zone_etude_cor <<- nettoyer_donnees(arbre_zone_etude_cor)
+  modele_poly <<- ajuster_modele_polynomial(arbre_zone_etude_cor)
   
   # Lire les tarifs
-  tarif_lent <- lire_tarifs("./tarif_shaeffer_lent.csv")
-  tarif_rapide <- lire_tarifs("./tarif_shaeffer_rapide.csv")
+  tarif_lent <<- lire_tarifs("./tarif_shaeffer_lent.csv")
+  tarif_rapide <<- lire_tarifs("./tarif_shaeffer_rapide.csv")
   
   # Comparer et sélectionner le meilleur tarif
-  best_tarif <- comparer_tarifs(arbre_zone_etude_cor, tarif_lent, tarif_rapide)
+  best_tarif <<- comparer_tarifs(arbre_zone_etude_cor, tarif_lent, tarif_rapide)
   
   # Étape 2 : Calculer les accroissements volumétriques
-  arbre_zone_etude_cor <- calculer_accroissements_volumetriques(arbre_zone_etude_cor, best_tarif, tarif_lent, tarif_rapide)
+  arbre_zone_etude_cor <<- calculer_accroissements_volumetriques(arbre_zone_etude_cor, best_tarif, tarif_lent, tarif_rapide)
+  
+  get_calc_V_ha()
+  get_taux_acc_V()
+  get_read_acc_V()
   
   # Afficher le résultat
   View(arbre_zone_etude_cor)
+  return(arbre_zone_etude_cor)
 }
+
+
+
+
+
+
