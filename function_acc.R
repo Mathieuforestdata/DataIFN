@@ -748,9 +748,28 @@ get_acc_V_sylvo_eco <- function(sylvoecoregion){
   get_arrange_data()
   get_species()
   get_data_dendro()
-  get_calc_V()
+  get_veget()
+  
+  arbre_zone_etude_cor <<- selectionner_essence(arbre_zone_etude_cor)
+  arbre_zone_etude_cor <<- nettoyer_donnees(arbre_zone_etude_cor)
+  modele_poly <<- ajuster_modele_polynomial(arbre_zone_etude_cor)
+  
+  # Lire les tarifs
+  tarif_lent <<- lire_tarifs("./tarif_shaeffer_lent.csv")
+  tarif_rapide <<- lire_tarifs("./tarif_shaeffer_rapide.csv")
+  
+  # Comparer et sélectionner le meilleur tarif
+  best_tarif <<- comparer_tarifs(arbre_zone_etude_cor, tarif_lent, tarif_rapide)
+  
+  # Étape 2 : Calculer les accroissements volumétriques
+  arbre_zone_etude_cor <<- calculer_accroissements_volumetriques(arbre_zone_etude_cor, best_tarif, tarif_lent, tarif_rapide)
+  
+  get_calc_V_ha()
+  get_taux_acc_V()
   get_read_acc_V()
-  View(table_recap_final_V)
+  
+  # Afficher le résultat
+  View(arbre_zone_etude_cor)
   
   return(plot_zone)
   
@@ -759,7 +778,6 @@ get_acc_V_sylvo_eco <- function(sylvoecoregion){
 # Obtenir l'accroissement en V/m3/ha/an d'une région forestière----
 get_acc_V_reg_foret <- function(reg_foret){
   get_reg_foret(reg_foret)
-  get_arrange_data()
   get_arrange_data()
   get_species()
   get_data_dendro()
@@ -1046,9 +1064,3 @@ get_accroissements_V <- function(buffer = 0) {
   View(arbre_zone_etude_cor)
   return(arbre_zone_etude_cor)
 }
-
-
-
-
-
-
