@@ -62,7 +62,10 @@ get_buffer_zone <- function(buffer = 0){
   
   # Extraire les IDP des placettes dans la zone tampon
   idp_placette_tampon <- placette_tampon$IDP
-
+  
+  # Filtre les arbres ayant le même IDP que les placettes de la zone
+  arbre_zone_etude <<- arbre[arbre$IDP %in% idp_placette_tampon, ]
+  
   
   # Convertir l'objet dessiné en sf si nécessaire
   shp_etude <- st_as_sf(shp_etude)
@@ -90,7 +93,7 @@ get_read_map <- function(){
   placette_tampon <- st_transform(placette_tampon, common_crs)
   
   
-  # Calculer le nombre de placettes et d'arbres dans la zone tampon
+   #Calculer le nombre de placettes et d'arbres dans la zone tampon
   nombre_placettes <- nrow(placette_tampon)  # Nombre de placettes dans la zone tampon
   nombre_arbres <- nrow(arbre_zone_etude)  # Nombre d'arbres dans la zone tampon
   
@@ -115,11 +118,10 @@ get_read_map <- function(){
 
 # fonction filtre des placettes----
 get_pla_eco <- function(){
-  placette_etude_eco <- ecologie %>%
+  placette_etude_eco <<- ecologie %>%
     select(IDP, TOPO, OBSTOPO, HUMUS, OLT, TSOL, TEXT1, ROCHE, OBSRIV2, 
            DISTRIV, DENIVRIV, OBSVEGET, OBSDATE )
-  placette_etude_eco <<- 
-    placette_etude_eco [placette_etude_eco$IDP %in% placette_tampon$IDP,]
+  placette_etude_eco <<- placette_etude_eco [placette_etude_eco$IDP %in% placette_tampon$IDP,]
   return(placette_etude_eco)
 }
 
@@ -225,34 +227,34 @@ get_data_value <- function(){
 
 get_groupe_flore <- function(){
   #création du groupe des hygrophyles
-  hygrophyle <- flore %>%
+  hygrophyle <<- flore %>%
     filter(CD_REF %in% c(923000, 88318, 88493, 88833, 99494, 103772, 137541,
                          107090, 108027, 122069))
-  Mesohygrophile <- flore %>%
+  Mesohygrophile <<- flore %>%
     filter(CD_REF %in% c(159536, 88766, 88819, 88893, 91378, 98717, 103031, 
                          107073, 139023, 117201, 142070))
-  Acidicline <- flore %>% # Acidiclines à acidiphiles sur sols à nappe temporaire 
+  Acidicline <<- flore %>% # Acidiclines à acidiphiles sur sols à nappe temporaire 
     filter(CD_REF %in% c(86101, 88395, 88747, 788967, 108718, 197825, 6747,
                          6748, 6769, 6789))
-  Neutronitrophiles <- flore %>%
+  Neutronitrophiles <<- flore %>%
     filter(CD_REF %in% c(80243, 80322, 81295, 81541, 84112, 87964, 99373, 
                          100142, 100225, 100310, 135306, 108361, 112421, 
                          4946, 139364, 98651, 134666, 117774, 120717, 124814, 128268))
-  Neutronitroclines <- flore %>% #Espèces des milieux neutres assez riches
+  Neutronitroclines <<- flore %>% #Espèces des milieux neutres assez riches
     filter(CD_REF %in% c(80990, 82637, 718321, 132818, 95567, 134348, 99488, 
                          104876, 107880, 113407, 114611, 116142, 129305))
-  Acidicline <- flore %>% 
+  Acidicline <<- flore %>% 
     filter(CD_REF %in% c(3853, 613147, 99334, 106854, 108537, 114153, 125006, 
                          128938))
-  Acidicline_hygrocline <- flore %>%
+  Acidicline_hygrocline <<- flore %>%
     filter(CD_REF %in% c(84999, 91258, 133787, 95558, 95563, 107072, 111859, 
                          122028, 128924))
-  Acidiphile <- flore %>%
+  Acidiphile <<- flore %>%
     filter(CD_REF %in% c(132790, 136654, 103320, 137432, 613135, 137522, 3865,
                          116265, 126035))
-  Hyperacidiphile <- flore %>%
+  Hyperacidiphile <<- flore %>%
     filter(CD_REF %in% c(87501, 718314, 4754, 4770, 128345))
-  Calcicline <- flore %>%
+  Calcicline <<- flore %>%
     filter( CD_REF %in% c(86305, 132529, 132707, 92497, 133432, 94435, 609982, 
                           105966, 106595, 611652, 129083))
   return()
@@ -262,10 +264,10 @@ get_groupe_flore <- function(){
 #caractéristiques du sol
 
 get_data_idp <- function(){
-  placette_sol_flore <- left_join(placette_etude_eco, flore, by = "IDP")
+  placette_sol_flore <<- left_join(placette_etude_eco, flore, by = "IDP")
   
   #dénombrer pour chaque placettes le nombre de plante appartenant à chaque groupe
-  liste_groupe_eco <- list(hygrophyle = hygrophyle,
+  liste_groupe_eco <<- list(hygrophyle = hygrophyle,
                            Calcicline = Calcicline,
                            Hyperacidiphile = Hyperacidiphile,
                            Acidiphile = Acidiphile,
@@ -276,22 +278,22 @@ get_data_idp <- function(){
                            Mesohygrophile = Mesohygrophile)
   
   # Initialisation du tableau final avec juste les IDP pour commencer
-  resultats_groupes <- data.frame(IDP = unique(placette_sol_flore$IDP))
+  resultats_groupes <<- data.frame(IDP = unique(placette_sol_flore$IDP))
 
 
   # Boucle sur chaque groupe écologique pour ajouter le nombre total de plantes par placette
   for (groupe in names(liste_groupe_eco)) {
-    df_indicateur <- liste_groupe_eco[[groupe]]
+    df_indicateur <<- liste_groupe_eco[[groupe]]
     
     # Jointure avec placette_sol_flore pour obtenir les plantes du groupe écologique sur chaque placette
-    groupe_plantes <- placette_sol_flore %>%
+    groupe_plantes <<- placette_sol_flore %>%
       inner_join(df_indicateur, by = c("IDP", "CD_REF")) %>% # Assurez-vous que la colonne de référence est la bonne (IDP et CD_REF)
       group_by(IDP) %>%
       summarise(ABOND_total = sum(ABOND.y, na.rm = TRUE)) %>%
       rename(!!paste0("ABOND_", groupe) := ABOND_total) # Renommer dynamiquement la colonne selon le groupe
     
     # Joindre les résultats pour chaque groupe dans le tableau final
-    resultats_groupes <- left_join(resultats_groupes, groupe_plantes, by = "IDP")
+    resultats_groupes <<- left_join(resultats_groupes, groupe_plantes, by = "IDP")
   placette_etude_eco <<- left_join(placette_etude_eco, resultats_groupes, by = "IDP")
   return(placette_etude_eco)
   }
@@ -308,7 +310,7 @@ filtre_peuplement <- function(){
                                              "Si oui écrire le nom de la syvoécorégion", 
                                              "si non écrire non: "))
   if (sylvocoecoregion != "non") {
-    sylveco_F <- ser %>%
+    sylveco_F <<- ser %>%
       filter(ser[["NomSER"]] == sylvocoecoregion)
     placette_ecoregion <<- placette_etude_eco
   
@@ -339,17 +341,17 @@ filtre_peuplement <- function(){
   
   
   #filtre pour le tyoe de peuplement CD_HAB
-  habitat_col <- habitat %>%
+  habitat_col <<- habitat %>%
     select("IDP","CD_HAB")
   placette_ecoregion_F <<- placette_ecoregion_F %>%
     left_join(habitat_col , by = "IDP")
   V_peu <<- readline(prompt = paste("Entrez la valeur du code de peuplement (si pas de filtre necessaire écrire non): "))
 
   if (V_peu != "non") {
-    placette_ecoregion_F <- placette_ecoregion_F %>%
+    placette_ecoregion_F <<- placette_ecoregion_F %>%
       filter(CD_HAB == V_peu)
   }
-  else {placette_ecoregion_F <- placette_ecoregion_F}
+  else {placette_ecoregion_F <<- placette_ecoregion_F}
     
   
   
@@ -366,13 +368,9 @@ get_data_eco <- function(){
   get_pla_eco()
   get_proportion_eco()
   get_data_value()
-  get_groupe_flore()
-  get_data_idp()
   filtre_peuplement()
   View(placette_ecoregion_F)
   return(plot_zone)
 }
 
 get_data_eco()
-
-
